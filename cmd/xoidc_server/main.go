@@ -4,24 +4,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/zltl/xoidc/pkg/server/exampleop"
-	"github.com/zltl/xoidc/pkg/server/storage"
+	"github.com/zltl/xoidc/internal/pkg/exampleop"
+	"github.com/zltl/xoidc/internal/pkg/storage"
 )
 
 func main() {
-	logrus.SetLevel(logrus.TraceLevel)
-	logrus.SetReportCaller(true)
-	logrus.SetFormatter(&logrus.TextFormatter{
-		DisableColors:   false,
-		FullTimestamp:   true,
-		ForceColors:     true,
-		DisableQuote:    true,
-		TimestampFormat: time.RFC3339,
-	})
-
 	//we will run on :9998
 	port := "9998"
 	//which gives us the issuer: http://localhost:9998/

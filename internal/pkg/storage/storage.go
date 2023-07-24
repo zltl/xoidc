@@ -6,17 +6,27 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/square/go-jose.v2"
 
 	"github.com/zitadel/oidc/v2/pkg/oidc"
 	"github.com/zitadel/oidc/v2/pkg/op"
 )
+
+// serviceKey1 is a public key which will be used for the JWT Profile Authorization Grant
+// the corresponding private key is in the service-key1.json (for demonstration purposes)
+var serviceKey1 = &rsa.PublicKey{
+	N: func() *big.Int {
+		n, _ := new(big.Int).SetString("00f6d44fb5f34ac2033a75e73cb65ff24e6181edc58845e75a560ac21378284977bb055b1a75b714874e2a2641806205681c09abec76efd52cf40984edcf4c8ca09717355d11ac338f280d3e4c905b00543bdb8ee5a417496cb50cb0e29afc5a0d0471fd5a2fa625bd5281f61e6b02067d4fe7a5349eeae6d6a4300bcd86eef331", 16)
+		return n
+	}(),
+	E: 65537,
+}
 
 var (
 	_ op.Storage                  = &Storage{}
@@ -27,9 +37,18 @@ var (
 // typically you would implement this as a layer on top of your database
 // for simplicity this example keeps everything in-memory
 type Storage struct {
-	signingKey signingKey
-
-	db *DB
+	lock          sync.Mutex
+	authRequests  map[string]*AuthRequest
+	codes         map[string]string
+	tokens        map[string]*Token
+	clients       map[string]*Client
+	userStore     UserStore
+	services      map[string]Service
+	refreshTokens map[string]*RefreshToken
+	signingKey    signingKey
+	deviceCodes   map[string]deviceAuthorizationEntry
+	userCodes     map[string]string
+	serviceUsers  map[string]*Client
 }
 
 type signingKey struct {
@@ -71,70 +90,84 @@ func (s *publicKey) Key() interface{} {
 }
 
 func NewStorage(userStore UserStore) *Storage {
-	// TODO: load signing key from file/DB
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
-
 	return &Storage{
+		authRequests:  make(map[string]*AuthRequest),
+		codes:         make(map[string]string),
+		tokens:        make(map[string]*Token),
+		refreshTokens: make(map[string]*RefreshToken),
+		clients:       clients,
+		userStore:     userStore,
+		services: map[string]Service{
+			userStore.ExampleClientID(): {
+				keys: map[string]*rsa.PublicKey{
+					"key1": serviceKey1,
+				},
+			},
+		},
 		signingKey: signingKey{
 			id:        uuid.NewString(),
 			algorithm: jose.RS256,
 			key:       key,
 		},
-		db: NewDB(""),
-		// TODO: new DB
+		deviceCodes: make(map[string]deviceAuthorizationEntry),
+		userCodes:   make(map[string]string),
+		serviceUsers: map[string]*Client{
+			"sid1": {
+				id:     "sid1",
+				secret: "verysecret",
+				grantTypes: []oidc.GrantType{
+					oidc.GrantTypeClientCredentials,
+				},
+				accessTokenType: op.AccessTokenTypeBearer,
+			},
+		},
 	}
 }
 
 // CheckUsernamePassword implements the `authenticate` interface of the login
 func (s *Storage) CheckUsernamePassword(username, password, id string) error {
-	logrus.Tracef("CheckUsernamePassword: %s", username)
-
-	request, err := s.db.GetAuthRequest(context.TODO(), id)
-	if err != nil {
-		logrus.Debugf("request not found: %v", err)
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	request, ok := s.authRequests[id]
+	if !ok {
 		return fmt.Errorf("request not found")
 	}
 
-	user, err := s.db.GetUserByUsername(username)
-	if err != nil {
-		logrus.Debugf("user not found: %v", err)
-		return fmt.Errorf("username or password wrong")
-	}
-	logrus.Debugf("user: %v", user)
+	// for demonstration purposes we'll check we'll have a simple user store and
+	// a plain text password.  For real world scenarios, be sure to have the password
+	// hashed and salted (e.g. using bcrypt)
+	user := s.userStore.GetUserByUsername(username)
+	if user != nil && user.Password == password {
+		// be sure to set user id into the auth request after the user was checked,
+		// so that you'll be able to get more information about the user after the login
+		request.UserID = user.ID
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
-		logrus.Debugf("password wrong: %v", err)
-		return fmt.Errorf("username or password wrong")
+		// you will have to change some state on the request to guide the user through possible multiple steps of the login process
+		// in this example we'll simply check the username / password and set a boolean to true
+		// therefore we will also just check this boolean if the request / login has been finished
+		request.done = true
+		return nil
 	}
-
-	request.UserID = user.ID
-	request.done = true
-	return nil
+	return fmt.Errorf("username or password wrong")
 }
 
 func (s *Storage) CheckUsernamePasswordSimple(username, password string) error {
-	logrus.Tracef("CheckUsernamePasswordSimple: %s", username)
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	user, err := s.db.GetUserByUsername(username)
-	if err != nil {
-		logrus.Debugf("user not found: %v", err)
-		return fmt.Errorf("username or password wrong")
+	user := s.userStore.GetUserByUsername(username)
+	if user != nil && user.Password == password {
+		return nil
 	}
-	logrus.Debugf("user: %v", user)
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
-		logrus.Debugf("password wrong: %v", err)
-		return fmt.Errorf("username or password wrong")
-	}
-
-	return nil
+	return fmt.Errorf("username or password wrong")
 }
 
 // CreateAuthRequest implements the op.Storage interface
 // it will be called after parsing and validation of the authentication request
 func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthRequest, userID string) (op.AuthRequest, error) {
-	logrus.Tracef("CreateAuthRequest: %s, %+v", userID, *authReq)
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	if len(authReq.Prompt) == 1 && authReq.Prompt[0] == "none" {
 		// With prompt=none, there is no way for the user to log in
@@ -149,10 +182,7 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 	request.ID = uuid.NewString()
 
 	// and save it in your database (for demonstration purposed we will use a simple map)
-	err := s.db.NewAuthRequest(ctx, request)
-	if err != nil {
-		return nil, err
-	}
+	s.authRequests[request.ID] = request
 
 	// finally, return the request (which implements the AuthRequest interface of the OP
 	return request, nil
@@ -161,11 +191,10 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 // AuthRequestByID implements the op.Storage interface
 // it will be called after the Login UI redirects back to the OIDC endpoint
 func (s *Storage) AuthRequestByID(ctx context.Context, id string) (op.AuthRequest, error) {
-	logrus.Tracef("AuthRequestByID: %s", id)
-
-	request, err := s.db.GetAuthRequest(ctx, id)
-	if err != nil {
-		logrus.Debugf("request not found: %v", err)
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	request, ok := s.authRequests[id]
+	if !ok {
 		return nil, fmt.Errorf("request not found")
 	}
 	return request, nil
@@ -174,9 +203,14 @@ func (s *Storage) AuthRequestByID(ctx context.Context, id string) (op.AuthReques
 // AuthRequestByCode implements the op.Storage interface
 // it will be called after parsing and validation of the token request (in an authorization code flow)
 func (s *Storage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRequest, error) {
-	logrus.Tracef("AuthRequestByCode: %s", code)
-	requestID, err := s.db.GetRequestIdByCode(ctx, code)
-	if err != nil {
+	// for this example we read the id by code and then get the request by id
+	requestID, ok := func() (string, bool) {
+		s.lock.Lock()
+		defer s.lock.Unlock()
+		requestID, ok := s.codes[code]
+		return requestID, ok
+	}()
+	if !ok {
 		return nil, fmt.Errorf("code invalid or expired")
 	}
 	return s.AuthRequestByID(ctx, requestID)
@@ -187,9 +221,9 @@ func (s *Storage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRe
 // (in an authorization code flow)
 func (s *Storage) SaveAuthCode(ctx context.Context, id string, code string) error {
 	// for this example we'll just save the authRequestID to the code
-	logrus.Tracef("SaveAuthCode: %s, %s", id, code)
-
-	s.db.AddCode(ctx, code, id)
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.codes[code] = id
 	return nil
 }
 
@@ -199,16 +233,14 @@ func (s *Storage) SaveAuthCode(ctx context.Context, id string, code string) erro
 // - token request (in an authorization code flow)
 func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 	// you can simply delete all reference to the auth request
-	logrus.Tracef("DeleteAuthRequest: %s", id)
-	err := s.db.DeleteAuthRequest(ctx, id)
-	if err != nil {
-		logrus.Errorf("error deleting auth request: %v", err)
-		return err
-	}
-	err = s.db.DeleteCodeByRequestId(ctx, id)
-	if err != nil {
-		logrus.Errorf("error deleting code: %v", err)
-		return err
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	delete(s.authRequests, id)
+	for code, requestID := range s.codes {
+		if id == requestID {
+			delete(s.codes, code)
+			return nil
+		}
 	}
 	return nil
 }
@@ -216,7 +248,6 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 // CreateAccessToken implements the op.Storage interface
 // it will be called for all requests able to return an access token (Authorization Code Flow, Implicit Flow, JWT Profile, ...)
 func (s *Storage) CreateAccessToken(ctx context.Context, request op.TokenRequest) (string, time.Time, error) {
-	logrus.Tracef("CreateAccessToken: %+v", request)
 	var applicationID string
 	switch req := request.(type) {
 	case *AuthRequest:
@@ -236,7 +267,6 @@ func (s *Storage) CreateAccessToken(ctx context.Context, request op.TokenRequest
 // CreateAccessAndRefreshTokens implements the op.Storage interface
 // it will be called for all requests able to return an access and refresh token (Authorization Code Flow, Refresh Token Request)
 func (s *Storage) CreateAccessAndRefreshTokens(ctx context.Context, request op.TokenRequest, currentRefreshToken string) (accessTokenID string, newRefreshToken string, expiration time.Time, err error) {
-	logrus.Tracef("CreateAccessAndRefreshTokens: %+v", request)
 	// generate tokens via token exchange flow if request is relevant
 	if teReq, ok := request.(op.TokenExchangeRequest); ok {
 		return s.exchangeRefreshToken(ctx, teReq)
@@ -273,7 +303,6 @@ func (s *Storage) CreateAccessAndRefreshTokens(ctx context.Context, request op.T
 }
 
 func (s *Storage) exchangeRefreshToken(ctx context.Context, request op.TokenExchangeRequest) (accessTokenID string, newRefreshToken string, expiration time.Time, err error) {
-	logrus.Tracef("exchangeRefreshToken: %+v", request)
 	applicationID := request.GetClientID()
 	authTime := request.GetAuthTime()
 
@@ -294,11 +323,10 @@ func (s *Storage) exchangeRefreshToken(ctx context.Context, request op.TokenExch
 // TokenRequestByRefreshToken implements the op.Storage interface
 // it will be called after parsing and validation of the refresh token request
 func (s *Storage) TokenRequestByRefreshToken(ctx context.Context, refreshToken string) (op.RefreshTokenRequest, error) {
-	logrus.Tracef("TokenRequestByRefreshToken: %s", refreshToken)
-
-	token, err := s.db.GetRefreshToken(ctx, refreshToken)
-	// token, ok := s.refreshTokens[refreshToken]
-	if err != nil {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	token, ok := s.refreshTokens[refreshToken]
+	if !ok {
 		return nil, fmt.Errorf("invalid refresh_token")
 	}
 	return RefreshTokenRequestFromBusiness(token), nil
@@ -307,19 +335,22 @@ func (s *Storage) TokenRequestByRefreshToken(ctx context.Context, refreshToken s
 // TerminateSession implements the op.Storage interface
 // it will be called after the user signed out, therefore the access and refresh token of the user of this client must be removed
 func (s *Storage) TerminateSession(ctx context.Context, userID string, clientID string) error {
-	logrus.Tracef("TerminateSession: %s, %s", userID, clientID)
-	s.db.DeleteTokenBySubjectApplicationID(ctx, clientID, userID)
-	s.db.DeleteRefreshTokenByApplicationIDUserID(ctx, clientID, userID)
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for _, token := range s.tokens {
+		if token.ApplicationID == clientID && token.Subject == userID {
+			delete(s.tokens, token.ID)
+			delete(s.refreshTokens, token.RefreshTokenID)
+		}
+	}
 	return nil
 }
 
 // GetRefreshTokenInfo looks up a refresh token and returns the token id and user id.
 // If given something that is not a refresh token, it must return error.
 func (s *Storage) GetRefreshTokenInfo(ctx context.Context, clientID string, token string) (userID string, tokenID string, err error) {
-	logrus.Tracef("GetRefreshTokenInfo: %s, %s", clientID, token)
-	refreshToken, err := s.db.GetRefreshToken(ctx, token)
-	// refreshToken, ok := s.refreshTokens[token]
-	if err != nil {
+	refreshToken, ok := s.refreshTokens[token]
+	if !ok {
 		return "", "", op.ErrInvalidRefreshToken
 	}
 	return refreshToken.UserID, refreshToken.ID, nil
@@ -329,23 +360,20 @@ func (s *Storage) GetRefreshTokenInfo(ctx context.Context, clientID string, toke
 // it will be called after parsing and validation of the token revocation request
 func (s *Storage) RevokeToken(ctx context.Context, tokenIDOrToken string, userID string, clientID string) *oidc.Error {
 	// a single token was requested to be removed
-	logrus.Tracef("RevokeToken: %s, %s, %s", tokenIDOrToken, userID, clientID)
-
-	accessToken, err := s.db.GetToken(ctx, tokenIDOrToken)
-	// accessToken, ok := s.tokens[tokenIDOrToken] // tokenID
-	if err == nil {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	accessToken, ok := s.tokens[tokenIDOrToken] // tokenID
+	if ok {
 		if accessToken.ApplicationID != clientID {
 			return oidc.ErrInvalidClient().WithDescription("token was not issued for this client")
 		}
 		// if it is an access token, just remove it
 		// you could also remove the corresponding refresh token if really necessary
-		s.db.DeleteToken(ctx, accessToken.ID)
-		// delete(s.tokens, accessToken.ID)
+		delete(s.tokens, accessToken.ID)
 		return nil
 	}
-	refreshToken, err := s.db.GetRefreshToken(ctx, tokenIDOrToken)
-	// refreshToken, ok := s.refreshTokens[tokenIDOrToken] // token
-	if err != nil {
+	refreshToken, ok := s.refreshTokens[tokenIDOrToken] // token
+	if !ok {
 		// if the token is neither an access nor a refresh token, just ignore it, the expected behaviour of
 		// being not valid (anymore) is achieved
 		return nil
@@ -354,16 +382,19 @@ func (s *Storage) RevokeToken(ctx context.Context, tokenIDOrToken string, userID
 		return oidc.ErrInvalidClient().WithDescription("token was not issued for this client")
 	}
 	// if it is a refresh token, you will have to remove the access token as well
-	s.db.DeleteRefreshToken(ctx, refreshToken.ID)
-	// delete(s.refreshTokens, refreshToken.ID)
-	s.db.DeleteTokenByRefreshTokenID(ctx, refreshToken.ID)
+	delete(s.refreshTokens, refreshToken.ID)
+	for _, accessToken := range s.tokens {
+		if accessToken.RefreshTokenID == refreshToken.ID {
+			delete(s.tokens, accessToken.ID)
+			return nil
+		}
+	}
 	return nil
 }
 
 // SigningKey implements the op.Storage interface
 // it will be called when creating the OpenID Provider
 func (s *Storage) SigningKey(ctx context.Context) (op.SigningKey, error) {
-	logrus.Tracef("SigningKey")
 	// in this example the signing key is a static rsa.PrivateKey and the algorithm used is RS256
 	// you would obviously have a more complex implementation and store / retrieve the key from your database as well
 	return &s.signingKey, nil
@@ -372,14 +403,12 @@ func (s *Storage) SigningKey(ctx context.Context) (op.SigningKey, error) {
 // SignatureAlgorithms implements the op.Storage interface
 // it will be called to get the sign
 func (s *Storage) SignatureAlgorithms(context.Context) ([]jose.SignatureAlgorithm, error) {
-	logrus.Tracef("SignatureAlgorithms")
 	return []jose.SignatureAlgorithm{s.signingKey.algorithm}, nil
 }
 
 // KeySet implements the op.Storage interface
 // it will be called to get the current (public) keys, among others for the keys_endpoint or for validating access_tokens on the userinfo_endpoint, ...
 func (s *Storage) KeySet(ctx context.Context) ([]op.Key, error) {
-	logrus.Tracef("KeySet")
 	// as mentioned above, this example only has a single signing key without key rotation,
 	// so it will directly use its public key
 	//
@@ -391,21 +420,22 @@ func (s *Storage) KeySet(ctx context.Context) ([]op.Key, error) {
 // GetClientByClientID implements the op.Storage interface
 // it will be called whenever information (type, redirect_uris, ...) about the client behind the client_id is needed
 func (s *Storage) GetClientByClientID(ctx context.Context, clientID string) (op.Client, error) {
-	logrus.Tracef("GetClientByClientID: %s", clientID)
-	client, err := s.db.GetClient(ctx, clientID)
-	// client, ok := s.clients[clientID]
-	if err != nil {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	client, ok := s.clients[clientID]
+	if !ok {
 		return nil, fmt.Errorf("client not found")
 	}
-	return RedirectGlobsClient(&client), nil
+	return RedirectGlobsClient(client), nil
 }
 
 // AuthorizeClientIDSecret implements the op.Storage interface
 // it will be called for validating the client_id, client_secret on token or introspection requests
 func (s *Storage) AuthorizeClientIDSecret(ctx context.Context, clientID, clientSecret string) error {
-	logrus.Tracef("AuthorizeClientIDSecret: %s, %s", clientID, clientSecret)
-	client, err := s.db.GetClient(ctx, clientID)
-	if err != nil {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	client, ok := s.clients[clientID]
+	if !ok {
 		return fmt.Errorf("client not found")
 	}
 	// for this example we directly check the secret
@@ -419,7 +449,6 @@ func (s *Storage) AuthorizeClientIDSecret(ctx context.Context, clientID, clientS
 // SetUserinfoFromScopes implements the op.Storage interface.
 // Provide an empty implementation and use SetUserinfoFromRequest instead.
 func (s *Storage) SetUserinfoFromScopes(ctx context.Context, userinfo *oidc.UserInfo, userID, clientID string, scopes []string) error {
-	logrus.Tracef("SetUserinfoFromScopes: %s, %s, %s", userID, clientID, scopes)
 	return nil
 }
 
@@ -427,20 +456,17 @@ func (s *Storage) SetUserinfoFromScopes(ctx context.Context, userinfo *oidc.User
 // next major release, it will be required for op.Storage.
 // It will be called for the creation of an id_token, so we'll just pass it to the private function without any further check
 func (s *Storage) SetUserinfoFromRequest(ctx context.Context, userinfo *oidc.UserInfo, token op.IDTokenRequest, scopes []string) error {
-	logrus.Tracef("SetUserinfoFromRequest: %s, %s", token.GetSubject(), scopes)
 	return s.setUserinfo(ctx, userinfo, token.GetSubject(), token.GetClientID(), scopes)
 }
 
 // SetUserinfoFromToken implements the op.Storage interface
 // it will be called for the userinfo endpoint, so we read the token and pass the information from that to the private function
 func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserInfo, tokenID, subject, origin string) error {
-	logrus.Tracef("SetUserinfoFromToken: %s, %s, %s", tokenID, subject, origin)
 	token, ok := func() (*Token, bool) {
-		token, err := s.db.GetToken(ctx, tokenID)
-		if err != nil {
-			return nil, false
-		}
-		return token, true
+		s.lock.Lock()
+		defer s.lock.Unlock()
+		token, ok := s.tokens[tokenID]
+		return token, ok
 	}()
 	if !ok {
 		return fmt.Errorf("token is invalid or has expired")
@@ -464,13 +490,11 @@ func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserI
 // SetIntrospectionFromToken implements the op.Storage interface
 // it will be called for the introspection endpoint, so we read the token and pass the information from that to the private function
 func (s *Storage) SetIntrospectionFromToken(ctx context.Context, introspection *oidc.IntrospectionResponse, tokenID, subject, clientID string) error {
-	logrus.Tracef("SetIntrospectionFromToken: %s, %s, %s", tokenID, subject, clientID)
 	token, ok := func() (*Token, bool) {
-		token, err := s.db.GetToken(ctx, tokenID)
-		if err != nil {
-			return nil, false
-		}
-		return token, true
+		s.lock.Lock()
+		defer s.lock.Unlock()
+		token, ok := s.tokens[tokenID]
+		return token, ok
 	}()
 	if !ok {
 		return fmt.Errorf("token is invalid or has expired")
@@ -502,12 +526,10 @@ func (s *Storage) SetIntrospectionFromToken(ctx context.Context, introspection *
 // GetPrivateClaimsFromScopes implements the op.Storage interface
 // it will be called for the creation of a JWT access token to assert claims for custom scopes
 func (s *Storage) GetPrivateClaimsFromScopes(ctx context.Context, userID, clientID string, scopes []string) (claims map[string]interface{}, err error) {
-	logrus.Tracef("GetPrivateClaimsFromScopes: %s, %s, %s", userID, clientID, scopes)
 	return s.getPrivateClaimsFromScopes(ctx, userID, clientID, scopes)
 }
 
 func (s *Storage) getPrivateClaimsFromScopes(ctx context.Context, userID, clientID string, scopes []string) (claims map[string]interface{}, err error) {
-	logrus.Tracef("getPrivateClaimsFromScopes: %s, %s, %s", userID, clientID, scopes)
 	for _, scope := range scopes {
 		switch scope {
 		case CustomScope:
@@ -520,12 +542,16 @@ func (s *Storage) getPrivateClaimsFromScopes(ctx context.Context, userID, client
 // GetKeyByIDAndClientID implements the op.Storage interface
 // it will be called to validate the signatures of a JWT (JWT Profile Grant and Authentication)
 func (s *Storage) GetKeyByIDAndClientID(ctx context.Context, keyID, clientID string) (*jose.JSONWebKey, error) {
-	logrus.Tracef("GetKeyByIDAndClientID: %s, %s", keyID, clientID)
-	key, err := s.db.GetService(ctx, clientID, keyID)
-	if err != nil {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	service, ok := s.services[clientID]
+	if !ok {
+		return nil, fmt.Errorf("clientID not found")
+	}
+	key, ok := service.keys[keyID]
+	if !ok {
 		return nil, fmt.Errorf("key not found")
 	}
-
 	return &jose.JSONWebKey{
 		KeyID: keyID,
 		Use:   "sig",
@@ -536,7 +562,6 @@ func (s *Storage) GetKeyByIDAndClientID(ctx context.Context, keyID, clientID str
 // ValidateJWTProfileScopes implements the op.Storage interface
 // it will be called to validate the scopes of a JWT Profile Authorization Grant request
 func (s *Storage) ValidateJWTProfileScopes(ctx context.Context, userID string, scopes []string) ([]string, error) {
-	logrus.Tracef("ValidateJWTProfileScopes: %s, %s", userID, scopes)
 	allowedScopes := make([]string, 0)
 	for _, scope := range scopes {
 		if scope == oidc.ScopeOpenID {
@@ -548,13 +573,13 @@ func (s *Storage) ValidateJWTProfileScopes(ctx context.Context, userID string, s
 
 // Health implements the op.Storage interface
 func (s *Storage) Health(ctx context.Context) error {
-	logrus.Tracef("Health")
 	return nil
 }
 
 // createRefreshToken will store a refresh_token in-memory based on the provided information
 func (s *Storage) createRefreshToken(accessToken *Token, amr []string, authTime time.Time) (string, error) {
-	logrus.Tracef("createRefreshToken")
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	token := &RefreshToken{
 		ID:            accessToken.RefreshTokenID,
 		Token:         accessToken.RefreshTokenID,
@@ -566,34 +591,38 @@ func (s *Storage) createRefreshToken(accessToken *Token, amr []string, authTime 
 		Expiration:    time.Now().Add(5 * time.Hour),
 		Scopes:        accessToken.Scopes,
 	}
-	s.db.AddRefreshToken(context.TODO(), token, token.ID)
+	s.refreshTokens[token.ID] = token
 	return token.Token, nil
 }
 
 // renewRefreshToken checks the provided refresh_token and creates a new one based on the current
 func (s *Storage) renewRefreshToken(currentRefreshToken string) (string, string, error) {
-	logrus.Tracef("renewRefreshToken %s", currentRefreshToken)
-	refreshToken, err := s.db.GetRefreshToken(context.Background(), currentRefreshToken)
-	// refreshToken, ok := s.refreshTokens[currentRefreshToken]
-	if err != nil {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	refreshToken, ok := s.refreshTokens[currentRefreshToken]
+	if !ok {
 		return "", "", fmt.Errorf("invalid refresh token")
 	}
 	// deletes the refresh token and all access tokens which were issued based on this refresh token
-	s.db.DeleteRefreshToken(context.Background(), currentRefreshToken)
-	// delete(s.refreshTokens, currentRefreshToken)
-	s.db.DeleteTokenByRefreshTokenID(context.TODO(), refreshToken.ID)
+	delete(s.refreshTokens, currentRefreshToken)
+	for _, token := range s.tokens {
+		if token.RefreshTokenID == currentRefreshToken {
+			delete(s.tokens, token.ID)
+			break
+		}
+	}
 	// creates a new refresh token based on the current one
 	token := uuid.NewString()
 	refreshToken.Token = token
 	refreshToken.ID = token
-	s.db.AddRefreshToken(context.Background(), refreshToken, token)
-	// s.refreshTokens[token] = refreshToken
+	s.refreshTokens[token] = refreshToken
 	return token, refreshToken.ID, nil
 }
 
 // accessToken will store an access_token in-memory based on the provided information
 func (s *Storage) accessToken(applicationID, refreshTokenID, subject string, audience, scopes []string) (*Token, error) {
-	logrus.Tracef("accessToken %s, %s, %s, %s, %s", applicationID, refreshTokenID, subject, audience, scopes)
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	token := &Token{
 		ID:             uuid.NewString(),
 		ApplicationID:  applicationID,
@@ -603,17 +632,16 @@ func (s *Storage) accessToken(applicationID, refreshTokenID, subject string, aud
 		Expiration:     time.Now().Add(5 * time.Minute),
 		Scopes:         scopes,
 	}
-	s.db.AddToken(context.Background(), token.ID, token)
-	// s.tokens[token.ID] = token
+	s.tokens[token.ID] = token
 	return token, nil
 }
 
 // setUserinfo sets the info based on the user, scopes and if necessary the clientID
 func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, userID, clientID string, scopes []string) (err error) {
-	logrus.Tracef("setUserinfo: %+v, %s, %s, %s", userInfo, userID, clientID, scopes)
-	user, err := s.db.GetUserByID(userID)
-	// user := s.userStore.GetUserByID(userID)
-	if err != nil {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	user := s.userStore.GetUserByID(userID)
+	if user == nil {
 		return fmt.Errorf("user not found")
 	}
 	for _, scope := range scopes {
@@ -643,7 +671,6 @@ func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, user
 // ValidateTokenExchangeRequest implements the op.TokenExchangeStorage interface
 // it will be called to validate parsed Token Exchange Grant request
 func (s *Storage) ValidateTokenExchangeRequest(ctx context.Context, request op.TokenExchangeRequest) error {
-	logrus.Tracef("ValidateTokenExchangeRequest: %s", request)
 	if request.GetRequestedTokenType() == "" {
 		request.SetRequestedTokenType(oidc.RefreshTokenType)
 	}
@@ -654,15 +681,8 @@ func (s *Storage) ValidateTokenExchangeRequest(ctx context.Context, request op.T
 	}
 
 	// Check impersonation permissions
-	if request.GetExchangeActor() == "" {
-		logrus.Tracef("GetExchangeActor nil")
+	if request.GetExchangeActor() == "" && !s.userStore.GetUserByID(request.GetExchangeSubject()).IsAdmin {
 		return errors.New("user doesn't have impersonation permission")
-	}
-	uinfo, err := s.db.GetUserByID(request.GetExchangeSubject())
-	if err != nil || !uinfo.IsAdmin {
-		logrus.Tracef("GetUserByID: uinfo: %+v", uinfo)
-		return errors.New("user doesn't have impersonation permission")
-
 	}
 
 	allowedScopes := make([]string, 0)
@@ -687,8 +707,6 @@ func (s *Storage) ValidateTokenExchangeRequest(ctx context.Context, request op.T
 // ValidateTokenExchangeRequest implements the op.TokenExchangeStorage interface
 // Common use case is to store request for audit purposes. For this example we skip the storing.
 func (s *Storage) CreateTokenExchangeRequest(ctx context.Context, request op.TokenExchangeRequest) error {
-	// TODO: store request for audit purposes
-	logrus.Infof("TokenExchangeRequest: %+v", request)
 	return nil
 }
 
@@ -696,7 +714,6 @@ func (s *Storage) CreateTokenExchangeRequest(ctx context.Context, request op.Tok
 // it will be called for the creation of an exchanged JWT access token to assert claims for custom scopes
 // plus adding token exchange specific claims related to delegation or impersonation
 func (s *Storage) GetPrivateClaimsFromTokenExchangeRequest(ctx context.Context, request op.TokenExchangeRequest) (claims map[string]interface{}, err error) {
-	logrus.Tracef("GetPrivateClaimsFromTokenExchangeRequest: %s", request)
 	claims, err = s.getPrivateClaimsFromScopes(ctx, "", request.GetClientID(), request.GetScopes())
 	if err != nil {
 		return nil, err
@@ -713,7 +730,6 @@ func (s *Storage) GetPrivateClaimsFromTokenExchangeRequest(ctx context.Context, 
 // it will be called for the creation of an id_token - we are using the same private function as for other flows,
 // plus adding token exchange specific claims related to delegation or impersonation
 func (s *Storage) SetUserinfoFromTokenExchangeRequest(ctx context.Context, userinfo *oidc.UserInfo, request op.TokenExchangeRequest) error {
-	logrus.Tracef("SetUserinfoFromTokenExchangeRequest: %s", request)
 	err := s.setUserinfo(ctx, userinfo, request.GetSubject(), request.GetClientID(), request.GetScopes())
 	if err != nil {
 		return err
@@ -727,7 +743,6 @@ func (s *Storage) SetUserinfoFromTokenExchangeRequest(ctx context.Context, useri
 }
 
 func (s *Storage) getTokenExchangeClaims(ctx context.Context, request op.TokenExchangeRequest) (claims map[string]interface{}) {
-	logrus.Tracef("getTokenExchangeClaims: %s", request)
 	for _, scope := range request.GetScopes() {
 		switch {
 		case strings.HasPrefix(scope, CustomScopeImpersonatePrefix) && request.GetExchangeActor() == "":
@@ -750,7 +765,6 @@ func (s *Storage) getTokenExchangeClaims(ctx context.Context, request op.TokenEx
 
 // getInfoFromRequest returns the clientID, authTime and amr depending on the op.TokenRequest type / implementation
 func getInfoFromRequest(req op.TokenRequest) (clientID string, authTime time.Time, amr []string) {
-	logrus.Tracef("getInfoFromRequest: %s", req)
 	authReq, ok := req.(*AuthRequest) // Code Flow (with scope offline_access)
 	if ok {
 		return authReq.ApplicationID, authReq.authTime, authReq.GetAMR()
@@ -764,7 +778,6 @@ func getInfoFromRequest(req op.TokenRequest) (clientID string, authTime time.Tim
 
 // customClaim demonstrates how to return custom claims based on provided information
 func customClaim(clientID string) map[string]interface{} {
-	logrus.Tracef("customClaim: %s", clientID)
 	return map[string]interface{}{
 		"client": clientID,
 		"other":  "stuff",
@@ -772,7 +785,6 @@ func customClaim(clientID string) map[string]interface{} {
 }
 
 func appendClaim(claims map[string]interface{}, claim string, value interface{}) map[string]interface{} {
-	logrus.Tracef("appendClaim: %s", claim)
 	if claims == nil {
 		claims = make(map[string]interface{})
 	}
@@ -787,18 +799,18 @@ type deviceAuthorizationEntry struct {
 }
 
 func (s *Storage) StoreDeviceAuthorization(ctx context.Context, clientID, deviceCode, userCode string, expires time.Time, scopes []string) error {
-	logrus.Tracef("StoreDeviceAuthorization: %s ", clientID)
-	_, err := s.db.GetClient(ctx, clientID)
-	if err != nil {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if _, ok := s.clients[clientID]; !ok {
 		return errors.New("client not found")
 	}
 
-	if _, err := s.db.GetUserCode(ctx, userCode); err != nil {
+	if _, ok := s.userCodes[userCode]; ok {
 		return op.ErrDuplicateUserCode
 	}
 
-	// s.deviceCodes[deviceCode] =
-	dc := deviceAuthorizationEntry{
+	s.deviceCodes[deviceCode] = deviceAuthorizationEntry{
 		deviceCode: deviceCode,
 		userCode:   userCode,
 		state: &op.DeviceAuthorizationState{
@@ -807,20 +819,21 @@ func (s *Storage) StoreDeviceAuthorization(ctx context.Context, clientID, device
 			Expires:  expires,
 		},
 	}
-	s.db.AddDeviceCode(ctx, deviceCode, dc)
-	s.db.AddUserCode(ctx, userCode, deviceCode)
+
+	s.userCodes[userCode] = deviceCode
 	return nil
 }
 
 func (s *Storage) GetDeviceAuthorizatonState(ctx context.Context, clientID, deviceCode string) (*op.DeviceAuthorizationState, error) {
-	logrus.Tracef("GetDeviceAuthorizatonState: %s ", clientID)
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
 
-	entry, err := s.db.GetDeviceCode(ctx, deviceCode)
-	// entry, ok := s.deviceCodes[deviceCode]
-	if err != nil || entry.state.ClientID != clientID {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	entry, ok := s.deviceCodes[deviceCode]
+	if !ok || entry.state.ClientID != clientID {
 		return nil, errors.New("device code not found for client") // is there a standard not found error in the framework?
 	}
 
@@ -828,33 +841,24 @@ func (s *Storage) GetDeviceAuthorizatonState(ctx context.Context, clientID, devi
 }
 
 func (s *Storage) GetDeviceAuthorizationByUserCode(ctx context.Context, userCode string) (*op.DeviceAuthorizationState, error) {
-	logrus.Tracef("GetDeviceAuthorizationByUserCode: %s ", userCode)
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	userCode, err := s.db.GetUserCode(ctx, userCode)
-	if err != nil {
-		return nil, errors.New("user code not found 1")
-	}
-	entry, err := s.db.GetDeviceCode(ctx, userCode)
-	//entry, ok := s.deviceCodes[s.userCodes[userCode]]
-	if err != nil {
-		return nil, errors.New("user code not found 2")
+	entry, ok := s.deviceCodes[s.userCodes[userCode]]
+	if !ok {
+		return nil, errors.New("user code not found")
 	}
 
 	return entry.state, nil
 }
 
 func (s *Storage) CompleteDeviceAuthorization(ctx context.Context, userCode, subject string) error {
-	logrus.Tracef("CompleteDeviceAuthorization: %s ", userCode)
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	userCode, err := s.db.GetUserCode(ctx, userCode)
-	if err != nil {
-		return errors.New("user code not found 3")
-	}
-	entry, err := s.db.GetDeviceCode(ctx, userCode)
-
-	// entry, ok := s.deviceCodes[s.userCodes[userCode]]
-	if err != nil {
-		return errors.New("user code not found 4")
+	entry, ok := s.deviceCodes[s.userCodes[userCode]]
+	if !ok {
+		return errors.New("user code not found")
 	}
 
 	entry.state.Subject = subject
@@ -863,29 +867,20 @@ func (s *Storage) CompleteDeviceAuthorization(ctx context.Context, userCode, sub
 }
 
 func (s *Storage) DenyDeviceAuthorization(ctx context.Context, userCode string) error {
-	logrus.Tracef("DenyDeviceAuthorization: %s ", userCode)
-	userCode, err := s.db.GetUserCode(ctx, userCode)
-	if err != nil {
-		return errors.New("user code not found 5")
-	}
-	entry, err := s.db.GetDeviceCode(ctx, userCode)
-	if err != nil {
-		return errors.New("user code not found 6")
-	}
-	entry.state.Denied = true
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	s.db.UpdateDeviceCode(ctx, userCode, entry)
-	// s.deviceCodes[s.userCodes[userCode]].state.Denied = true
+	s.deviceCodes[s.userCodes[userCode]].state.Denied = true
 	return nil
 }
 
 // AuthRequestDone is used by testing and is not required to implement op.Storage
 func (s *Storage) AuthRequestDone(id string) error {
-	logrus.Tracef("AuthRequestDone: %s ", id)
-	_, err := s.db.GetAuthRequest(context.TODO(), id)
-	if err != nil {
-		s.db.SetAuthRequestDone(context.TODO(), id, true)
-		// req.done = true
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if req, ok := s.authRequests[id]; ok {
+		req.done = true
 		return nil
 	}
 
@@ -893,24 +888,23 @@ func (s *Storage) AuthRequestDone(id string) error {
 }
 
 func (s *Storage) ClientCredentials(ctx context.Context, clientID, clientSecret string) (op.Client, error) {
-	logrus.Tracef("ClientCredentials: %s ", clientID)
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	client, err := s.db.GetClient(ctx, clientID)
-	// client, ok := s.serviceUsers[clientID]
-	if err != nil {
+	client, ok := s.serviceUsers[clientID]
+	if !ok {
 		return nil, errors.New("wrong service user or password")
 	}
 	if client.secret != clientSecret {
 		return nil, errors.New("wrong service user or password")
 	}
 
-	return &client, nil
+	return client, nil
 }
 
 func (s *Storage) ClientCredentialsTokenRequest(ctx context.Context, clientID string, scopes []string) (op.TokenRequest, error) {
-	logrus.Tracef("ClientCredentialsTokenRequest: %s ", clientID)
-	client, err := s.db.GetClient(ctx, clientID)
-	if err != nil {
+	client, ok := s.serviceUsers[clientID]
+	if !ok {
 		return nil, errors.New("wrong service user or password")
 	}
 

@@ -22,23 +22,23 @@ const (
 )
 
 type AuthRequest struct {
-	ID            string             `json:"id"`
-	CreationDate  time.Time          `json:"creation_date"`
-	ApplicationID string             `json:"application_id"`
-	CallbackURI   string             `json:"callback_uri"`
-	TransferState string             `json:"transfer_state"`
-	Prompt        []string           `json:"prompt"`
-	UiLocales     []language.Tag     `json:"ui_locales"`
-	LoginHint     string             `json:"login_hint"`
-	MaxAuthAge    *time.Duration     `json:"max_auth_age"`
-	UserID        string             `json:"user_id"`
-	Scopes        []string           `json:"scopes"`
-	ResponseType  oidc.ResponseType  `json:"response_type"`
-	Nonce         string             `json:"nonce"`
-	CodeChallenge *OIDCCodeChallenge `json:"code_challenge"`
+	ID            string
+	CreationDate  time.Time
+	ApplicationID string
+	CallbackURI   string
+	TransferState string
+	Prompt        []string
+	UiLocales     []language.Tag
+	LoginHint     string
+	MaxAuthAge    *time.Duration
+	UserID        string
+	Scopes        []string
+	ResponseType  oidc.ResponseType
+	Nonce         string
+	CodeChallenge *OIDCCodeChallenge
 
 	done     bool
-	authTime time.Time `json: "auth_time"`
+	authTime time.Time
 }
 
 func (a *AuthRequest) GetID() string {

@@ -12,6 +12,9 @@ var (
 	defaultLoginURL = func(id string) string {
 		return "/login/username?authRequestID=" + id
 	}
+
+	// clients to be used by the storage interface
+	clients = map[string]*Client{}
 )
 
 // Client represents the storage model of an OAuth/OIDC client
@@ -122,6 +125,18 @@ func (c *Client) IDTokenUserinfoClaimsAssertion() bool {
 // (subtract from issued_at, add to expiration, ...)
 func (c *Client) ClockSkew() time.Duration {
 	return c.clockSkew
+}
+
+// RegisterClients enables you to register clients for the example implementation
+// there are some clients (web and native) to try out different cases
+// add more if necessary
+//
+// RegisterClients should be called before the Storage is used so that there are
+// no race conditions.
+func RegisterClients(registerClients ...*Client) {
+	for _, client := range registerClients {
+		clients[client.id] = client
+	}
 }
 
 // NativeClient will create a client of type native, which will always use PKCE and allow the use of refresh tokens
