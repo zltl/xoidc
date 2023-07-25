@@ -21,3 +21,5 @@
 go.work
 /bin
 /.gen
+~.~undo-tree~
+/.Makefile.~undo-tree~
