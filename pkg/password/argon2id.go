@@ -14,10 +14,12 @@ var DefaultParams = &argon2id.Params{
 	KeyLength:   32,
 }
 
+// argon2id
 func ComparePasswordAndHash(password, hash string) (match bool, err error) {
 	return argon2id.ComparePasswordAndHash(password, hash)
 }
 
+// argon2id
 func CreateHash(password string) (hash string, err error) {
 	return argon2id.CreateHash(password, DefaultParams)
 }
