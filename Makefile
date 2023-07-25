@@ -4,8 +4,8 @@
 .ONESHELL:
 
 
+# if jet command not found, install
 deps:
-	# if jet command not found, install
 	if ! [ -x "$$(command -v jet)" ]; then
 		echo "Installing jet...";
 		go install github.com/go-jet/jet/v2/cmd/jet@latest;
