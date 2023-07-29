@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/zltl/xoidc/internal/pkg/db"
 	"github.com/zltl/xoidc/internal/pkg/exampleop"
 	"github.com/zltl/xoidc/internal/pkg/storage"
 )
@@ -14,6 +15,19 @@ func main() {
 	port := "9998"
 	//which gives us the issuer: http://localhost:9998/
 	issuer := fmt.Sprintf("http://localhost:%s/", port)
+
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
+	log.SetReportCaller(true)
+
+	log.SetLevel(log.TraceLevel)
+
+	mdb := db.New("localhost", 5432, "postgres", "postgres", "xoidc")
+	err := mdb.Open()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// the OpenIDProvider interface needs a Storage interface handling various checks and state manipulations
 	// this might be the layer for accessing your database
@@ -28,7 +42,7 @@ func main() {
 	}
 	log.Printf("server listening on http://localhost:%s/", port)
 	log.Println("press ctrl+c to stop")
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}

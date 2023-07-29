@@ -1,8 +1,12 @@
 
-.PHONY: clean deps jet
+.PHONY: clean deps jet build
 
 .ONESHELL:
 
+build:
+	echo "Building xoidc..."
+	
+	go build -o bin/xoidc ./cmd/xoidc_server
 
 # if jet command not found, install
 deps:
