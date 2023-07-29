@@ -9,9 +9,8 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/text/language"
 
-	"xoidc/internal/pkg/storage"
-
 	"github.com/zitadel/oidc/v2/pkg/op"
+	"github.com/zltl/xoidc/internal/pkg/storage"
 )
 
 const (
