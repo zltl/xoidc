@@ -17,6 +17,7 @@ func main() {
 	issuer := fmt.Sprintf("http://localhost:%s/", port)
 
 	log.SetFormatter(&log.TextFormatter{
+		DisableQuote:  true,
 		FullTimestamp: true,
 	})
 	log.SetReportCaller(true)

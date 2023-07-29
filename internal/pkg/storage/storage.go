@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
+	"github.com/zltl/xoidc/pkg/password"
 	"gopkg.in/square/go-jose.v2"
 
 	"github.com/zitadel/oidc/v2/pkg/oidc"
@@ -130,8 +131,8 @@ func NewStorage(userStore UserStore) *Storage {
 }
 
 // CheckUsernamePassword implements the `authenticate` interface of the login
-func (s *Storage) CheckUsernamePassword(username, password, id string) error {
-	logrus.Tracef("CheckUsernamePassword: username=%s", username)
+func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) error {
+	log.Tracef("CheckUsernamePassword: username=%s", username)
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	request, ok := s.authRequests[id]
@@ -139,25 +140,27 @@ func (s *Storage) CheckUsernamePassword(username, password, id string) error {
 		return fmt.Errorf("request not found")
 	}
 
-	// for demonstration purposes we'll check we'll have a simple user store and
-	// a plain text password.  For real world scenarios, be sure to have the password
-	// hashed and salted (e.g. using bcrypt)
-	user := s.userStore.GetUserByUsername(username)
-	if user != nil && user.Password == password {
-		// be sure to set user id into the auth request after the user was checked,
-		// so that you'll be able to get more information about the user after the login
-		request.UserID = user.ID
-
-		// you will have to change some state on the request to guide the user through possible multiple steps of the login process
-		// in this example we'll simply check the username / password and set a boolean to true
-		// therefore we will also just check this boolean if the request / login has been finished
+	passHash, err := s.DB.QueryPassword(context.TODO(), username, 0)
+	if err != nil {
+		log.Errorf("QueryPassword: %v", err)
+		return err
+	}
+	match, err := password.ComparePasswordAndHash(passwordInput, passHash)
+	if err != nil {
+		log.Errorf("ComparePasswordAndHash: %v", err)
+		return err
+	}
+	if match {
+		request.UserID = "id1"
 		request.done = true
 		return nil
 	}
+
 	return fmt.Errorf("username or password wrong")
 }
 
 func (s *Storage) CheckUsernamePasswordSimple(username, password string) error {
+	log.Tracef("CheckUsernamePasswordSimple: username=%s", username)
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
