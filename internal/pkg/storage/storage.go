@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
 	"gopkg.in/square/go-jose.v2"
 
@@ -130,6 +131,7 @@ func NewStorage(userStore UserStore) *Storage {
 
 // CheckUsernamePassword implements the `authenticate` interface of the login
 func (s *Storage) CheckUsernamePassword(username, password, id string) error {
+	logrus.Tracef("CheckUsernamePassword: username=%s", username)
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	request, ok := s.authRequests[id]

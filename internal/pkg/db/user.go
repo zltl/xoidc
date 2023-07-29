@@ -1,22 +1,26 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 
-	"github.com/zltl/xoidc/gen/table"
+	. "github.com/go-jet/jet/v2/postgres"
+	"github.com/zltl/xoidc/gen/xoidc/public/table"
 )
 
-func (s *Store) QueryPassword(name string, namespace int) (string, error) {
+func (s *Store) QueryPassword(ctx context.Context, name string, namespace int64) (string, error) {
 	tb := table.User
-	stm := tb.Select(tb.ID,
+	stmt := tb.SELECT(
 		tb.Password,
-	).Where(
-		tb.Name.Eq(name),
-		tb.Namespace.Eq(namespace),
+	).WHERE(
+		tb.Username.EQ(String(name)).AND(
+			tb.Namespace.EQ(Int64(namespace)),
+		),
 	)
+	cmd, args := stmt.Sql()
 
 	var pass sql.NullString
-	err := stm.Query(s.db, &pass)
+	err := s.db.QueryRowContext(ctx, cmd, args...).Scan(&pass)
 
 	return pass.String, err
 }
