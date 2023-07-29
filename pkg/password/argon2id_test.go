@@ -1,6 +1,8 @@
 package password
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestGenHash(t *testing.T) {
 	hash, err := CreateHash("123456")
@@ -21,4 +23,12 @@ func BenchmarkCheckHash(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = ComparePasswordAndHash("123456", hash)
 	}
+}
+
+func TestCreateHash2(t *testing.T) {
+	hash, err := CreateHash("123456")
+	if err != nil {
+		panic(err)
+	}
+	t.Log(hash)
 }
