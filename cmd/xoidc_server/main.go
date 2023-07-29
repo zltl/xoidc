@@ -33,6 +33,7 @@ func main() {
 	// this might be the layer for accessing your database
 	// in this example it will be handled in-memory
 	storage := storage.NewStorage(storage.NewUserStore(issuer))
+	storage.DB = mdb
 
 	router := exampleop.SetupServer(issuer, storage)
 

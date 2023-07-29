@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/zltl/xoidc/internal/pkg/db"
 	"gopkg.in/square/go-jose.v2"
 
 	"github.com/zitadel/oidc/v2/pkg/oidc"
@@ -49,6 +50,8 @@ type Storage struct {
 	deviceCodes   map[string]deviceAuthorizationEntry
 	userCodes     map[string]string
 	serviceUsers  map[string]*Client
+
+	DB *db.Store
 }
 
 type signingKey struct {
