@@ -17,7 +17,7 @@ deps:
 
 jet: deps
 	echo "Generating jet db operation files..."
-	jet -dsn=postgresql://postgres:123456@localhost:5432/xoidc?sslmode=disable -schema=public -path=./.gen
+	jet -dsn=postgresql://postgres:123456@localhost:5432/xoidc?sslmode=disable -schema=public -path=./gen
 
 clean:
 	rm -rf bin/*

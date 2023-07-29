@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 
-	"github.com/zltl/xoidc/.gen/table"
+	"github.com/zltl/xoidc/gen/table"
 )
 
 func (s *Store) QueryPassword(name string, namespace int) (string, error) {
