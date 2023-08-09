@@ -33,8 +33,8 @@ func main() {
 	// the OpenIDProvider interface needs a Storage interface handling various checks and state manipulations
 	// this might be the layer for accessing your database
 	// in this example it will be handled in-memory
-	storage := storage.NewStorage(storage.NewUserStore(issuer))
-	storage.DB = mdb
+	ustore := storage.NewUserStore(issuer)
+	storage := storage.NewStorage(ustore, mdb)
 
 	router := exampleop.SetupServer(issuer, storage)
 

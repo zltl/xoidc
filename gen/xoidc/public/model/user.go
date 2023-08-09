@@ -15,23 +15,23 @@ type User struct {
 	ID                  int64 `sql:"primary_key"`
 	Username            string
 	Password            string
-	Nickname            *string
-	GivenName           *string
-	FamilyName          *string
-	MiddleName          *string
-	PreferredUsername   *string
-	Profile             *string
-	Picture             *string
-	Website             *string
-	Email               *string
-	EmailVerified       *bool
-	Gender              *string
-	Birthdate           *time.Time
-	Zoneinfo            *string
-	Locale              *string
-	PhoneNumber         *string
-	PhoneNumberVerified *bool
-	Address             *string
+	Nickname            string
+	GivenName           string
+	FamilyName          string
+	MiddleName          string
+	PreferredUsername   string
+	Profile             string
+	Picture             string
+	Website             string
+	Email               string
+	EmailVerified       bool
+	Gender              string
+	Birthdate           time.Time
+	Zoneinfo            string
+	Locale              string
+	PhoneNumber         string
+	PhoneNumberVerified bool
+	Address             string
 	UpdatedAt           time.Time
 	Namespace           int64 `sql:"primary_key"`
 }

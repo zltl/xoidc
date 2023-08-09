@@ -8,6 +8,7 @@ import (
 
 	"github.com/zitadel/oidc/v2/pkg/oidc"
 	"github.com/zitadel/oidc/v2/pkg/op"
+	"github.com/zltl/xoidc/internal/pkg/db"
 )
 
 type multiStorage struct {
@@ -16,10 +17,10 @@ type multiStorage struct {
 
 // NewMultiStorage implements the op.Storage interface by wrapping multiple storage structs
 // and selecting them by the calling issuer
-func NewMultiStorage(issuers []string) *multiStorage {
+func NewMultiStorage(issuers []string, mdb *db.Store) *multiStorage {
 	s := make(map[string]*Storage)
 	for _, issuer := range issuers {
-		s[issuer] = NewStorage(NewUserStore(issuer))
+		s[issuer] = NewStorage(NewUserStore(issuer), mdb)
 	}
 	return &multiStorage{issuers: s}
 }

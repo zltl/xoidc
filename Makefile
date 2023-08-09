@@ -5,7 +5,7 @@
 
 build:
 	echo "Building xoidc..."
-	
+
 	go build -o bin/xoidc ./cmd/xoidc_server
 
 # if jet command not found, install

@@ -1,9 +1,12 @@
 package storage
 
 import (
+	"context"
 	"crypto/rsa"
 	"strings"
 
+	"github.com/bwmarrin/snowflake"
+	"github.com/zltl/xoidc/internal/pkg/db"
 	"golang.org/x/text/language"
 )
 
@@ -33,11 +36,12 @@ type UserStore interface {
 
 type userStore struct {
 	users map[string]*User
+	DB    *db.Store
 }
 
 func NewUserStore(issuer string) UserStore {
 	hostname := strings.Split(strings.Split(issuer, "://")[1], ":")[0]
-	return userStore{
+	return &userStore{
 		users: map[string]*User{
 			"id1": {
 				ID:                "id1",
@@ -75,14 +79,39 @@ func (u userStore) ExampleClientID() string {
 }
 
 func (u userStore) GetUserByID(id string) *User {
-	return u.users[id]
+	us, err := u.DB.GetUserByID(context.TODO(), id)
+	if err != nil {
+		return nil
+	}
+	sid := snowflake.ID(us.ID)
+	return &User{
+		ID:            sid.Base64(),
+		Username:      us.Username,
+		Password:      us.Password,
+		FirstName:     us.GivenName,
+		LastName:      us.FamilyName,
+		Email:         us.Email,
+		EmailVerified: us.EmailVerified,
+		Phone:         us.PhoneNumber,
+		PhoneVerified: us.PhoneNumberVerified,
+	}
 }
 
 func (u userStore) GetUserByUsername(username string) *User {
-	for _, user := range u.users {
-		if user.Username == username {
-			return user
-		}
+	us, err := u.DB.GetUserByUsername(context.TODO(), username)
+	if err != nil {
+		return nil
 	}
-	return nil
+	sid := snowflake.ID(us.ID)
+	return &User{
+		ID:            sid.Base64(),
+		Username:      us.Username,
+		Password:      us.Password,
+		FirstName:     us.GivenName,
+		LastName:      us.FamilyName,
+		Email:         us.Email,
+		EmailVerified: us.EmailVerified,
+		Phone:         us.PhoneNumber,
+		PhoneVerified: us.PhoneNumberVerified,
+	}
 }

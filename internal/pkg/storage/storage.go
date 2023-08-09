@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bwmarrin/snowflake"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
@@ -94,17 +95,19 @@ func (s *publicKey) Key() interface{} {
 	return &s.key.PublicKey
 }
 
-func NewStorage(userStore UserStore) *Storage {
+func NewStorage(u UserStore, d *db.Store) *Storage {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	u.(*userStore).DB = d
 	return &Storage{
+		DB:            d,
 		authRequests:  make(map[string]*AuthRequest),
 		codes:         make(map[string]string),
 		tokens:        make(map[string]*Token),
 		refreshTokens: make(map[string]*RefreshToken),
 		clients:       clients,
-		userStore:     userStore,
+		userStore:     u,
 		services: map[string]Service{
-			userStore.ExampleClientID(): {
+			u.ExampleClientID(): {
 				keys: map[string]*rsa.PublicKey{
 					"key1": serviceKey1,
 				},
@@ -140,18 +143,20 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) erro
 		return fmt.Errorf("request not found")
 	}
 
-	passHash, err := s.DB.QueryPassword(context.TODO(), username, 0)
+	us, err := s.DB.GetUserByUsername(context.TODO(), username)
 	if err != nil {
 		log.Errorf("QueryPassword: %v", err)
 		return err
 	}
+	passHash := us.Password
 	match, err := password.ComparePasswordAndHash(passwordInput, passHash)
 	if err != nil {
 		log.Errorf("ComparePasswordAndHash: %v", err)
 		return err
 	}
+	sid := snowflake.ID(us.ID)
 	if match {
-		request.UserID = "id1"
+		request.UserID = sid.Base64()
 		request.done = true
 		return nil
 	}
