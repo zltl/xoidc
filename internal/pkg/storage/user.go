@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"crypto/rsa"
-	"strings"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/zltl/xoidc/internal/pkg/db"
@@ -35,42 +34,11 @@ type UserStore interface {
 }
 
 type userStore struct {
-	users map[string]*User
 	DB    *db.Store
 }
 
 func NewUserStore(issuer string) UserStore {
-	hostname := strings.Split(strings.Split(issuer, "://")[1], ":")[0]
-	return &userStore{
-		users: map[string]*User{
-			"id1": {
-				ID:                "id1",
-				Username:          "test-user@" + hostname,
-				Password:          "verysecure",
-				FirstName:         "Test",
-				LastName:          "User",
-				Email:             "test-user@zitadel.ch",
-				EmailVerified:     true,
-				Phone:             "",
-				PhoneVerified:     false,
-				PreferredLanguage: language.German,
-				IsAdmin:           true,
-			},
-			"id2": {
-				ID:                "id2",
-				Username:          "test-user2",
-				Password:          "verysecure",
-				FirstName:         "Test",
-				LastName:          "User2",
-				Email:             "test-user2@zitadel.ch",
-				EmailVerified:     true,
-				Phone:             "",
-				PhoneVerified:     false,
-				PreferredLanguage: language.German,
-				IsAdmin:           false,
-			},
-		},
-	}
+	return &userStore{}
 }
 
 // ExampleClientID is only used in the example server

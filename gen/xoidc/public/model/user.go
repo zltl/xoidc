@@ -33,5 +33,5 @@ type User struct {
 	PhoneNumberVerified bool
 	Address             string
 	UpdatedAt           time.Time
-	Namespace           int64 `sql:"primary_key"`
+	Namespace           int64
 }

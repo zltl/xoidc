@@ -37,7 +37,7 @@ type userTable struct {
 	PhoneNumber         postgres.ColumnString
 	PhoneNumberVerified postgres.ColumnBool
 	Address             postgres.ColumnString
-	UpdatedAt           postgres.ColumnTimestamp
+	UpdatedAt           postgres.ColumnTimestampz
 	Namespace           postgres.ColumnInteger
 
 	AllColumns     postgres.ColumnList
@@ -99,10 +99,10 @@ func newUserTableImpl(schemaName, tableName, alias string) userTable {
 		PhoneNumberColumn         = postgres.StringColumn("phone_number")
 		PhoneNumberVerifiedColumn = postgres.BoolColumn("phone_number_verified")
 		AddressColumn             = postgres.StringColumn("address")
-		UpdatedAtColumn           = postgres.TimestampColumn("updated_at")
+		UpdatedAtColumn           = postgres.TimestampzColumn("updated_at")
 		NamespaceColumn           = postgres.IntegerColumn("namespace")
 		allColumns                = postgres.ColumnList{IDColumn, UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn, NamespaceColumn}
-		mutableColumns            = postgres.ColumnList{UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn}
+		mutableColumns            = postgres.ColumnList{UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn, NamespaceColumn}
 	)
 
 	return userTable{
