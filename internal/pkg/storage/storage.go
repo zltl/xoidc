@@ -133,6 +133,56 @@ func NewStorage(u UserStore, d *db.Store) *Storage {
 	}
 }
 
+func (s *Storage) GetClient(ctx context.Context, id string) (*Client, error) {
+	log.Tracef("GetClient: id=%s", id)
+	c, err := s.DB.GetClientByID(ctx, id)
+	if err != nil {
+		log.Errorf("GetClientByID: %v", err)
+		return nil, err
+	}
+	gt, err := s.DB.GetClientGrantTypes(ctx, id)
+	if err != nil {
+		log.Errorf("GetGrantTypes: %v", err)
+		return nil, err
+	}
+	uri, err := s.DB.GetClientRedirectURIs(ctx, id)
+	if err != nil {
+		log.Errorf("GetClientRedirectURIs: %v", err)
+		return nil, err
+	}
+	rest, err := s.DB.GetClientResponseTypes(ctx, id)
+	if err != nil {
+		log.Errorf("GetClientResponseTypes: %v", err)
+		return nil, err
+	}
+
+	var gts []oidc.GrantType
+	for _, g := range gt {
+		gts = append(gts, oidc.GrantType(g))
+	}
+	var rests []oidc.ResponseType
+	for _, r := range rest {
+		rests = append(rests, oidc.ResponseType(r))
+	}
+
+	return &Client{
+		id:                             snowflake.ID(c.ID).Base64(),
+		secret:                         c.Secret,
+		redirectURIs:                   uri,
+		applicationType:                op.ApplicationType(c.ApplicationType),
+		authMethod:                     oidc.AuthMethod(c.AuthMethod),
+		loginURL:                       defaultLoginURL,
+		responseTypes:                  rests,
+		grantTypes:                     gts,
+		accessTokenType:                op.AccessTokenType(c.AccessTokenType),
+		devMode:                        c.DevMode,
+		idTokenUserinfoClaimsAssertion: false,
+		clockSkew:                      0,
+		postLogoutRedirectURIGlobs:     nil,
+		redirectURIGlobs:               nil,
+	}, nil
+}
+
 // CheckUsernamePassword implements the `authenticate` interface of the login
 func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) error {
 	log.Tracef("CheckUsernamePassword: username=%s", username)
@@ -435,9 +485,9 @@ func (s *Storage) KeySet(ctx context.Context) ([]op.Key, error) {
 func (s *Storage) GetClientByClientID(ctx context.Context, clientID string) (op.Client, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	client, ok := s.clients[clientID]
-	if !ok {
-		return nil, fmt.Errorf("client not found")
+	client, err := s.GetClient(ctx, clientID)
+	if err != nil {
+		return nil, err
 	}
 	return RedirectGlobsClient(client), nil
 }
@@ -447,9 +497,10 @@ func (s *Storage) GetClientByClientID(ctx context.Context, clientID string) (op.
 func (s *Storage) AuthorizeClientIDSecret(ctx context.Context, clientID, clientSecret string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	client, ok := s.clients[clientID]
-	if !ok {
-		return fmt.Errorf("client not found")
+
+	client, err := s.GetClient(ctx, clientID)
+	if err != nil {
+		return err
 	}
 	// for this example we directly check the secret
 	// obviously you would not have the secret in plain text, but rather hashed and salted (e.g. using bcrypt)
@@ -815,8 +866,9 @@ func (s *Storage) StoreDeviceAuthorization(ctx context.Context, clientID, device
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if _, ok := s.clients[clientID]; !ok {
-		return errors.New("client not found")
+	_, err := s.GetClient(ctx, clientID)
+	if err != nil {
+		return err
 	}
 
 	if _, ok := s.userCodes[userCode]; ok {
