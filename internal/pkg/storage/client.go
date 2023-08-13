@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"log"
 	"time"
 
 	"github.com/zitadel/oidc/v2/pkg/oidc"
@@ -14,7 +15,7 @@ var (
 	}
 
 	// clients to be used by the storage interface
-	clients = map[string]*Client{}
+	// clients = map[string]*Client{}
 )
 
 // Client represents the storage model of an OAuth/OIDC client
@@ -135,7 +136,8 @@ func (c *Client) ClockSkew() time.Duration {
 // no race conditions.
 func RegisterClients(registerClients ...*Client) {
 	for _, client := range registerClients {
-		clients[client.id] = client
+		log.Printf("Registering client: %s", client.id)
+		// clients[client.id] = client
 	}
 }
 
