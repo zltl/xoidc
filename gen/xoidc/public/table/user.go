@@ -102,7 +102,7 @@ func newUserTableImpl(schemaName, tableName, alias string) userTable {
 		UpdatedAtColumn           = postgres.TimestampzColumn("updated_at")
 		NamespaceColumn           = postgres.IntegerColumn("namespace")
 		allColumns                = postgres.ColumnList{IDColumn, UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn, NamespaceColumn}
-		mutableColumns            = postgres.ColumnList{UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn, NamespaceColumn}
+		mutableColumns            = postgres.ColumnList{UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn}
 	)
 
 	return userTable{
