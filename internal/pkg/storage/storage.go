@@ -45,7 +45,6 @@ type Storage struct {
 	authRequests  map[string]*AuthRequest
 	codes         map[string]string
 	tokens        map[string]*Token
-	clients       map[string]*Client
 	userStore     UserStore
 	services      map[string]Service
 	refreshTokens map[string]*RefreshToken
@@ -104,7 +103,6 @@ func NewStorage(u UserStore, d *db.Store) *Storage {
 		codes:         make(map[string]string),
 		tokens:        make(map[string]*Token),
 		refreshTokens: make(map[string]*RefreshToken),
-		clients:       clients,
 		userStore:     u,
 		services: map[string]Service{
 			u.ExampleClientID(): {
