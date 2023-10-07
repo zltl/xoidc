@@ -13,9 +13,6 @@ var (
 	defaultLoginURL = func(id string) string {
 		return "/login/username?authRequestID=" + id
 	}
-
-	// clients to be used by the storage interface
-	// clients = map[string]*Client{}
 )
 
 // Client represents the storage model of an OAuth/OIDC client

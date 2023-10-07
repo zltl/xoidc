@@ -10,20 +10,11 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/zitadel/oidc/v2/pkg/op"
-	"github.com/zltl/xoidc/internal/pkg/storage"
 )
 
 const (
 	pathLoggedOut = "/logged-out"
 )
-
-func init() {
-	storage.RegisterClients(
-		storage.NativeClient("native"),
-		storage.WebClient("web", "secret"),
-		storage.WebClient("api", "secret"),
-	)
-}
 
 type Storage interface {
 	op.Storage
