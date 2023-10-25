@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
 	"github.com/zltl/xoidc/internal/pkg/exampleop"
 	"github.com/zltl/xoidc/internal/pkg/storage"
+	"golang.org/x/exp/slog"
 )
 
 func main() {
@@ -36,7 +38,14 @@ func main() {
 	ustore := storage.NewUserStore(issuer)
 	storage := storage.NewStorage(ustore, mdb)
 
-	router := exampleop.SetupServer(issuer, storage)
+	logger := slog.New(
+		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     slog.LevelDebug,
+		}),
+	)
+
+	router := exampleop.SetupServer(issuer, storage, logger, false)
 
 	server := &http.Server{
 		Addr:    ":" + port,

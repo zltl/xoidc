@@ -12,14 +12,14 @@ import (
 	"time"
 
 	"github.com/bwmarrin/snowflake"
+	jose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
 	"github.com/zltl/xoidc/pkg/password"
-	"gopkg.in/square/go-jose.v2"
 
-	"github.com/zitadel/oidc/v2/pkg/oidc"
-	"github.com/zitadel/oidc/v2/pkg/op"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
+	"github.com/zitadel/oidc/v3/pkg/op"
 )
 
 // serviceKey1 is a public key which will be used for the JWT Profile Authorization Grant

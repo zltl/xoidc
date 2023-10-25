@@ -5,28 +5,29 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
+	"github.com/zitadel/oidc/v3/pkg/op"
 )
 
 type login struct {
 	authenticate authenticate
-	router       *mux.Router
+	router       chi.Router
 	callback     func(context.Context, string) string
 }
 
-func NewLogin(authenticate authenticate, callback func(context.Context, string) string) *login {
+func NewLogin(authenticate authenticate, callback func(context.Context, string) string, issuerInterceptor *op.IssuerInterceptor) *login {
 	l := &login{
 		authenticate: authenticate,
 		callback:     callback,
 	}
-	l.createRouter()
+	l.createRouter(issuerInterceptor)
 	return l
 }
 
-func (l *login) createRouter() {
-	l.router = mux.NewRouter()
-	l.router.Path("/username").Methods("GET").HandlerFunc(l.loginHandler)
-	l.router.Path("/username").Methods("POST").HandlerFunc(l.checkLoginHandler)
+func (l *login) createRouter(issuerInterceptor *op.IssuerInterceptor) {
+	l.router = chi.NewRouter()
+	l.router.Get("/username", l.loginHandler)
+	l.router.Post("/username", issuerInterceptor.HandlerFunc(l.checkLoginHandler))
 }
 
 type authenticate interface {
