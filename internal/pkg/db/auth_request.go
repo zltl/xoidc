@@ -83,10 +83,28 @@ INSERT INTO auth_request (
 func (s *Store) UpdateAuthRequest(ctx context.Context, a *m.AuthRequest) error {
 	stmt := `
 UPDATE auth_request (
-    user
-
-)
+    user_id,
+    done,
+    auth_time,
+) VALUES (
+    $1,
+    $2
+    $3
+) WHERE
+    id=$4
 `
+	_, err := s.db.ExecContext(
+		ctx,
+		stmt,
+		m.UserID(a.UserID).String(),
+		a.Done(),
+		a.AuthTime,
+	)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	return nil
 }
 
 func (s *Store) DeleteAuthRequest(ctx context.Context, id string) error {
