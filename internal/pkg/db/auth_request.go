@@ -8,9 +8,10 @@ import (
 
 	"github.com/zltl/xoidc/gen/xoidc/public/model"
 	"github.com/zltl/xoidc/gen/xoidc/public/table"
+	"github.com/zltl/xoidc/pkg/m"
 )
 
-func (s *Store) QueryAuthRequestByID(ctx context.Context, id string) (*model.AuthRequest, error) {
+func (s *Store) QueryAuthRequestByID(ctx context.Context, id string) (*m.AuthRequest, error) {
 	var res model.AuthRequest
 	tb := table.AuthRequest
 
@@ -27,44 +28,65 @@ func (s *Store) QueryAuthRequestByID(ctx context.Context, id string) (*model.Aut
 		logrus.Error(err)
 		return nil, err
 	}
-
-	return &res, nil
-}
-
-func (s *Store) SetAuthRequest(ctx context.Context, req *model.AuthRequest) error {
-	tb := table.AuthRequest
-	stmt := tb.INSERT(
-		tb.AllColumns,
-	).MODEL(req).ON_CONFLICT(
-		tb.ID,
-	).DO_UPDATE(
-		SET(
-			tb.CreationDate.SET(tb.EXCLUDED.CreationDate), // EXCLUDE references proposed insertion row
-			tb.ApplicationID.SET(tb.EXCLUDED.ApplicationID),
-			tb.CallbackURI.SET(tb.EXCLUDED.CallbackURI),
-			tb.TransferState.SET(tb.EXCLUDED.TransferState),
-			tb.Prompt.SET(tb.EXCLUDED.Prompt),
-			tb.UILocales.SET(tb.EXCLUDED.UILocales),
-			tb.LoginHint.SET(tb.EXCLUDED.LoginHint),
-			tb.MaxAuthAge.SET(tb.EXCLUDED.MaxAuthAge),
-			tb.UserID.SET(tb.EXCLUDED.UserID),
-			tb.Scopes.SET(tb.EXCLUDED.Scopes),
-			tb.ResponseType.SET(tb.EXCLUDED.ResponseType),
-			tb.Nonce.SET(tb.EXCLUDED.Nonce),
-			tb.OidcCodeChallange.SET(tb.EXCLUDED.OidcCodeChallange),
-			tb.OidcCodeChallangeMethod.SET(tb.EXCLUDED.OidcCodeChallangeMethod),
-			tb.Done.SET(tb.EXCLUDED.Done),
-			tb.AuthTime.SET(tb.EXCLUDED.AuthTime),
-		),
-	)
-
-	_, err := stmt.ExecContext(ctx, s.db)
-	if err != nil {
-		logrus.Error(err)
-		return err
+	a := &m.AuthRequest{
+		ID:           res.ID.String(),
+		CreationDate: res.CreationDate,
+		UserID:       m.UserID(*res.UserID),
+		IsDone:       res.Done,
+		AuthTime:     res.AuthTime,
 	}
 
-	return nil
+	err = a.SetContent(res.Content)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (s *Store) StoreAuthRequest(ctx context.Context, a *m.AuthRequest) (string, error) {
+	stmt := `
+INSERT INTO auth_request (
+    id,
+    creation_date,
+    user_id,
+    done,
+    auth_time,
+    content,
+) VALUES (
+    gen_random_uuid(),
+    $1,
+    $2,
+    $3,
+    $4,
+    $5
+) RETURN id
+`
+	var uuid string
+	err := s.db.QueryRowContext(
+		ctx,
+		stmt,
+		a.CreationDate,
+		a.UserID.String(),
+		a.Done,
+		a.AuthTime,
+		a.Content,
+	).Scan(&uuid)
+	if err != nil {
+		logrus.Error(err)
+		return "", err
+	}
+	return uuid, nil
+}
+
+func (s *Store) UpdateAuthRequest(ctx context.Context, a *m.AuthRequest) error {
+	stmt := `
+UPDATE auth_request (
+    user
+
+)
+`
 }
 
 func (s *Store) DeleteAuthRequest(ctx context.Context, id string) error {

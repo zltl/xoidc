@@ -14,8 +14,10 @@ import (
 	"github.com/bwmarrin/snowflake"
 	jose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
+	"github.com/zltl/xoidc/pkg/m"
 	"github.com/zltl/xoidc/pkg/password"
 
 	"github.com/zitadel/oidc/v3/pkg/oidc"
@@ -41,8 +43,8 @@ var (
 // typically you would implement this as a layer on top of your database
 // for simplicity this example keeps everything in-memory
 type Storage struct {
-	lock          sync.Mutex
-	authRequests  map[string]*AuthRequest
+	lock sync.Mutex
+	// authRequests  map[string]*m.AuthRequest
 	codes         map[string]string
 	tokens        map[string]*Token
 	userStore     UserStore
@@ -98,8 +100,8 @@ func NewStorage(u UserStore, d *db.Store) *Storage {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	u.(*userStore).DB = d
 	return &Storage{
-		DB:            d,
-		authRequests:  make(map[string]*AuthRequest),
+		DB: d,
+		// authRequests:  make(map[string]*m.AuthRequest),
 		codes:         make(map[string]string),
 		tokens:        make(map[string]*Token),
 		refreshTokens: make(map[string]*RefreshToken),
@@ -184,10 +186,10 @@ func (s *Storage) GetClient(ctx context.Context, id string) (*Client, error) {
 // CheckUsernamePassword implements the `authenticate` interface of the login
 func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) error {
 	log.Tracef("CheckUsernamePassword: username=%s", username)
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	request, ok := s.authRequests[id]
-	if !ok {
+
+	request, err := s.DB.QueryAuthRequestByID(context.TODO(), id)
+	if err != nil {
+		logrus.Error(err)
 		return fmt.Errorf("request not found")
 	}
 
@@ -202,10 +204,16 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) erro
 		log.Errorf("ComparePasswordAndHash: %v", err)
 		return err
 	}
-	sid := snowflake.ID(us.ID)
+	sid := m.UserIDFromInt64(us.ID)
 	if match {
-		request.UserID = sid.Base64()
-		request.done = true
+		request.UserID = sid
+		request.IsDone = true
+
+		err = s.DB.UpdateAuthRequest(context.Background(), request)
+		if err != nil {
+			log.Errorf("UpdateAuthRequest: %v", err)
+			return err
+		}
 		return nil
 	}
 
@@ -227,9 +235,6 @@ func (s *Storage) CheckUsernamePasswordSimple(username, password string) error {
 // CreateAuthRequest implements the op.Storage interface
 // it will be called after parsing and validation of the authentication request
 func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthRequest, userID string) (op.AuthRequest, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	if len(authReq.Prompt) == 1 && authReq.Prompt[0] == "none" {
 		// With prompt=none, there is no way for the user to log in
 		// so return error right away.
@@ -239,23 +244,22 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 	// typically, you'll fill your storage / storage model with the information of the passed object
 	request := authRequestToInternal(authReq, userID)
 
-	// you'll also have to create a unique id for the request (this might be done by your database; we'll use a uuid)
-	request.ID = uuid.NewString()
+	rid, err := s.DB.StoreAuthRequest(context.TODO(), request)
+	if err != nil {
+		log.Errorf("StoreAuthRequest: %v", err)
+		return nil, err
+	}
+	request.ID = rid
 
-	// and save it in your database (for demonstration purposed we will use a simple map)
-	s.authRequests[request.ID] = request
-
-	// finally, return the request (which implements the AuthRequest interface of the OP
 	return request, nil
 }
 
 // AuthRequestByID implements the op.Storage interface
 // it will be called after the Login UI redirects back to the OIDC endpoint
 func (s *Storage) AuthRequestByID(ctx context.Context, id string) (op.AuthRequest, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	request, ok := s.authRequests[id]
-	if !ok {
+	request, err := s.DB.QueryAuthRequestByID(context.Background(), id)
+	if err != nil {
+		logrus.Error(err)
 		return nil, fmt.Errorf("request not found")
 	}
 	return request, nil
@@ -296,7 +300,13 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 	// you can simply delete all reference to the auth request
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	delete(s.authRequests, id)
+
+	err := s.DB.DeleteAuthRequest(ctx, id)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+
 	for code, requestID := range s.codes {
 		if id == requestID {
 			delete(s.codes, code)
@@ -311,9 +321,8 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 func (s *Storage) CreateAccessToken(ctx context.Context, request op.TokenRequest) (string, time.Time, error) {
 	var applicationID string
 	switch req := request.(type) {
-	case *AuthRequest:
-		// if authenticated for an app (auth code / implicit flow) we must save the client_id to the token
-		applicationID = req.ApplicationID
+	case *m.AuthRequest:
+		applicationID = req.GetClientID()
 	case op.TokenExchangeRequest:
 		applicationID = req.GetClientID()
 	}
@@ -827,9 +836,9 @@ func (s *Storage) getTokenExchangeClaims(ctx context.Context, request op.TokenEx
 
 // getInfoFromRequest returns the clientID, authTime and amr depending on the op.TokenRequest type / implementation
 func getInfoFromRequest(req op.TokenRequest) (clientID string, authTime time.Time, amr []string) {
-	authReq, ok := req.(*AuthRequest) // Code Flow (with scope offline_access)
+	authReq, ok := req.(*m.AuthRequest) // Code Flow (with scope offline_access)
 	if ok {
-		return authReq.ApplicationID, authReq.authTime, authReq.GetAMR()
+		return authReq.GetClientID(), authReq.AuthTime, authReq.GetAMR()
 	}
 	refreshReq, ok := req.(*RefreshTokenRequest) // Refresh Token Request
 	if ok {
@@ -939,15 +948,18 @@ func (s *Storage) DenyDeviceAuthorization(ctx context.Context, userCode string) 
 
 // AuthRequestDone is used by testing and is not required to implement op.Storage
 func (s *Storage) AuthRequestDone(id string) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if req, ok := s.authRequests[id]; ok {
-		req.done = true
-		return nil
+	req, err := s.DB.QueryAuthRequestByID(context.Background(), id)
+	if err != nil {
+		logrus.Error(err)
+		return errors.New("request not found")
 	}
-
-	return errors.New("request not found")
+	req.IsDone = true
+	err = s.DB.UpdateAuthRequest(context.TODO(), req)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	return nil
 }
 
 func (s *Storage) ClientCredentials(ctx context.Context, clientID, clientSecret string) (op.Client, error) {
