@@ -99,6 +99,7 @@ UPDATE auth_request (
 		m.UserID(a.UserID).String(),
 		a.Done(),
 		a.AuthTime,
+		a.ID,
 	)
 	if err != nil {
 		logrus.Error(err)
