@@ -241,9 +241,11 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 		return nil, oidc.ErrLoginRequired()
 	}
 
+	logrus.Info("CreateAuthRequest, userID=", userID)
 	// typically, you'll fill your storage / storage model with the information of the passed object
 	request := authRequestToInternal(authReq, userID)
 
+	logrus.Infof("request: %+v", request)
 	rid, err := s.DB.StoreAuthRequest(context.TODO(), request)
 	if err != nil {
 		log.Errorf("StoreAuthRequest: %v", err)

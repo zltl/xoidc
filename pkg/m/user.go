@@ -17,6 +17,9 @@ func UserIDFromInt64(i int64) UserID {
 }
 
 func ParseUserID(uid string) (UserID, error) {
+	if uid == "" {
+		return UserID(0), nil
+	}
 	id, err := snowflake.ParseBase64(uid)
 	return UserID(id), err
 }

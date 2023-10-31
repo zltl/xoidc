@@ -4,6 +4,7 @@ import (
 	"context"
 
 	. "github.com/go-jet/jet/v2/postgres"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
 	"github.com/zltl/xoidc/gen/xoidc/public/model"
@@ -18,7 +19,7 @@ func (s *Store) QueryAuthRequestByID(ctx context.Context, id string) (*m.AuthReq
 	stmt := tb.SELECT(
 		tb.AllColumns,
 	).WHERE(
-		tb.ID.EQ(String(id)),
+		tb.ID.EQ(UUID(uuid.MustParse(id))),
 	).ORDER_BY(
 		tb.CreationDate.DESC(),
 	).LIMIT(1)
@@ -53,7 +54,7 @@ INSERT INTO auth_request (
     user_id,
     done,
     auth_time,
-    content,
+    content
 ) VALUES (
     gen_random_uuid(),
     $1,
@@ -61,17 +62,17 @@ INSERT INTO auth_request (
     $3,
     $4,
     $5
-) RETURN id
+) RETURNING id
 `
 	var uuid string
 	err := s.db.QueryRowContext(
 		ctx,
 		stmt,
 		a.CreationDate,
-		a.UserID.String(),
-		a.Done,
+		a.UserID,
+		a.IsDone,
 		a.AuthTime,
-		a.Content,
+		a.Content(),
 	).Scan(&uuid)
 	if err != nil {
 		logrus.Error(err)
@@ -82,24 +83,20 @@ INSERT INTO auth_request (
 
 func (s *Store) UpdateAuthRequest(ctx context.Context, a *m.AuthRequest) error {
 	stmt := `
-UPDATE auth_request (
-    user_id,
-    done,
-    auth_time,
-) VALUES (
-    $1,
-    $2
-    $3
+UPDATE auth_request
+SET user_id=$1,
+	done=$2,
+	auth_time=$3
 ) WHERE
     id=$4
 `
 	_, err := s.db.ExecContext(
 		ctx,
 		stmt,
-		m.UserID(a.UserID).String(),
+		a.UserID,
 		a.Done(),
 		a.AuthTime,
-		a.ID,
+		uuid.MustParse(a.ID),
 	)
 	if err != nil {
 		logrus.Error(err)

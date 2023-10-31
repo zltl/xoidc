@@ -32,6 +32,7 @@ func MaxAgeToInternal(maxAge *uint) *time.Duration {
 }
 
 func authRequestToInternal(authReq *oidc.AuthRequest, userID string) *m.AuthRequest {
+	logrus.Infof("userID: %s", userID)
 	u, err := m.ParseUserID(userID)
 	if err != nil {
 		logrus.Error(err)
