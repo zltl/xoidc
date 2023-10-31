@@ -17,23 +17,12 @@ type authRequestTable struct {
 	postgres.Table
 
 	// Columns
-	ID                      postgres.ColumnString
-	CreationDate            postgres.ColumnTimestampz
-	ApplicationID           postgres.ColumnString
-	CallbackURI             postgres.ColumnString
-	TransferState           postgres.ColumnString
-	Prompt                  postgres.ColumnString
-	UILocales               postgres.ColumnString
-	LoginHint               postgres.ColumnString
-	MaxAuthAge              postgres.ColumnString
-	UserID                  postgres.ColumnInteger
-	Scopes                  postgres.ColumnString
-	ResponseType            postgres.ColumnString
-	Nonce                   postgres.ColumnString
-	OidcCodeChallange       postgres.ColumnString
-	OidcCodeChallangeMethod postgres.ColumnString
-	Done                    postgres.ColumnBool
-	AuthTime                postgres.ColumnTimestampz
+	ID           postgres.ColumnString
+	CreationDate postgres.ColumnTimestampz
+	UserID       postgres.ColumnInteger
+	Done         postgres.ColumnBool
+	AuthTime     postgres.ColumnTimestampz
+	Content      postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -74,48 +63,26 @@ func newAuthRequestTable(schemaName, tableName, alias string) *AuthRequestTable 
 
 func newAuthRequestTableImpl(schemaName, tableName, alias string) authRequestTable {
 	var (
-		IDColumn                      = postgres.StringColumn("id")
-		CreationDateColumn            = postgres.TimestampzColumn("creation_date")
-		ApplicationIDColumn           = postgres.StringColumn("application_id")
-		CallbackURIColumn             = postgres.StringColumn("callback_uri")
-		TransferStateColumn           = postgres.StringColumn("transfer_state")
-		PromptColumn                  = postgres.StringColumn("prompt")
-		UILocalesColumn               = postgres.StringColumn("ui_locales")
-		LoginHintColumn               = postgres.StringColumn("login_hint")
-		MaxAuthAgeColumn              = postgres.StringColumn("max_auth_age")
-		UserIDColumn                  = postgres.IntegerColumn("user_id")
-		ScopesColumn                  = postgres.StringColumn("scopes")
-		ResponseTypeColumn            = postgres.StringColumn("response_type")
-		NonceColumn                   = postgres.StringColumn("nonce")
-		OidcCodeChallangeColumn       = postgres.StringColumn("oidc_code_challange")
-		OidcCodeChallangeMethodColumn = postgres.StringColumn("oidc_code_challange_method")
-		DoneColumn                    = postgres.BoolColumn("done")
-		AuthTimeColumn                = postgres.TimestampzColumn("auth_time")
-		allColumns                    = postgres.ColumnList{IDColumn, CreationDateColumn, ApplicationIDColumn, CallbackURIColumn, TransferStateColumn, PromptColumn, UILocalesColumn, LoginHintColumn, MaxAuthAgeColumn, UserIDColumn, ScopesColumn, ResponseTypeColumn, NonceColumn, OidcCodeChallangeColumn, OidcCodeChallangeMethodColumn, DoneColumn, AuthTimeColumn}
-		mutableColumns                = postgres.ColumnList{CreationDateColumn, ApplicationIDColumn, CallbackURIColumn, TransferStateColumn, PromptColumn, UILocalesColumn, LoginHintColumn, MaxAuthAgeColumn, UserIDColumn, ScopesColumn, ResponseTypeColumn, NonceColumn, OidcCodeChallangeColumn, OidcCodeChallangeMethodColumn, DoneColumn, AuthTimeColumn}
+		IDColumn           = postgres.StringColumn("id")
+		CreationDateColumn = postgres.TimestampzColumn("creation_date")
+		UserIDColumn       = postgres.IntegerColumn("user_id")
+		DoneColumn         = postgres.BoolColumn("done")
+		AuthTimeColumn     = postgres.TimestampzColumn("auth_time")
+		ContentColumn      = postgres.StringColumn("content")
+		allColumns         = postgres.ColumnList{IDColumn, CreationDateColumn, UserIDColumn, DoneColumn, AuthTimeColumn, ContentColumn}
+		mutableColumns     = postgres.ColumnList{CreationDateColumn, UserIDColumn, DoneColumn, AuthTimeColumn, ContentColumn}
 	)
 
 	return authRequestTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:                      IDColumn,
-		CreationDate:            CreationDateColumn,
-		ApplicationID:           ApplicationIDColumn,
-		CallbackURI:             CallbackURIColumn,
-		TransferState:           TransferStateColumn,
-		Prompt:                  PromptColumn,
-		UILocales:               UILocalesColumn,
-		LoginHint:               LoginHintColumn,
-		MaxAuthAge:              MaxAuthAgeColumn,
-		UserID:                  UserIDColumn,
-		Scopes:                  ScopesColumn,
-		ResponseType:            ResponseTypeColumn,
-		Nonce:                   NonceColumn,
-		OidcCodeChallange:       OidcCodeChallangeColumn,
-		OidcCodeChallangeMethod: OidcCodeChallangeMethodColumn,
-		Done:                    DoneColumn,
-		AuthTime:                AuthTimeColumn,
+		ID:           IDColumn,
+		CreationDate: CreationDateColumn,
+		UserID:       UserIDColumn,
+		Done:         DoneColumn,
+		AuthTime:     AuthTimeColumn,
+		Content:      ContentColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

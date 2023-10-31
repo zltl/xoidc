@@ -6,6 +6,7 @@ import (
 
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
+	"github.com/zltl/xoidc/pkg/m"
 )
 
 var (
@@ -108,7 +109,7 @@ func (c *Client) RestrictAdditionalAccessTokenScopes() func(scopes []string) []s
 // IsScopeAllowed enables Client specific custom scopes validation
 // in this example we allow the CustomScope for all clients
 func (c *Client) IsScopeAllowed(scope string) bool {
-	return scope == CustomScope
+	return scope == m.CustomScope
 }
 
 // IDTokenUserinfoClaimsAssertion allows specifying if claims of scope profile, email, phone and address are asserted into the id_token

@@ -90,7 +90,7 @@ func (a *AuthRequest) GetState() string {
 }
 
 func (a *AuthRequest) GetSubject() string {
-	return a.UserID
+	return a.UserID.String()
 }
 
 func (a *AuthRequest) Done() bool {

@@ -13,21 +13,10 @@ import (
 )
 
 type AuthRequest struct {
-	ID                      uuid.UUID `sql:"primary_key"`
-	CreationDate            time.Time
-	ApplicationID           string
-	CallbackURI             string
-	TransferState           string
-	Prompt                  string
-	UILocales               string
-	LoginHint               string
-	MaxAuthAge              string
-	UserID                  *int64
-	Scopes                  *string
-	ResponseType            *string
-	Nonce                   string
-	OidcCodeChallange       string
-	OidcCodeChallangeMethod string
-	Done                    bool
-	AuthTime                time.Time
+	ID           uuid.UUID `sql:"primary_key"`
+	CreationDate time.Time
+	UserID       *int64
+	Done         bool
+	AuthTime     time.Time
+	Content      string
 }

@@ -603,8 +603,8 @@ func (s *Storage) GetPrivateClaimsFromScopes(ctx context.Context, userID, client
 func (s *Storage) getPrivateClaimsFromScopes(ctx context.Context, userID, clientID string, scopes []string) (claims map[string]interface{}, err error) {
 	for _, scope := range scopes {
 		switch scope {
-		case CustomScope:
-			claims = appendClaim(claims, CustomClaim, customClaim(clientID))
+		case m.CustomScope:
+			claims = appendClaim(claims, m.CustomClaim, customClaim(clientID))
 		}
 	}
 	return claims, nil
@@ -731,9 +731,9 @@ func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, user
 		case oidc.ScopePhone:
 			userInfo.PhoneNumber = user.Phone
 			userInfo.PhoneNumberVerified = user.PhoneVerified
-		case CustomScope:
+		case m.CustomScope:
 			// you can also have a custom scope and assert public or custom claims based on that
-			userInfo.AppendClaims(CustomClaim, customClaim(clientID))
+			userInfo.AppendClaims(m.CustomClaim, customClaim(clientID))
 		}
 	}
 	return nil
@@ -762,8 +762,8 @@ func (s *Storage) ValidateTokenExchangeRequest(ctx context.Context, request op.T
 			continue
 		}
 
-		if strings.HasPrefix(scope, CustomScopeImpersonatePrefix) {
-			subject := strings.TrimPrefix(scope, CustomScopeImpersonatePrefix)
+		if strings.HasPrefix(scope, m.CustomScopeImpersonatePrefix) {
+			subject := strings.TrimPrefix(scope, m.CustomScopeImpersonatePrefix)
 			request.SetSubject(subject)
 		}
 
@@ -816,7 +816,7 @@ func (s *Storage) SetUserinfoFromTokenExchangeRequest(ctx context.Context, useri
 func (s *Storage) getTokenExchangeClaims(ctx context.Context, request op.TokenExchangeRequest) (claims map[string]interface{}) {
 	for _, scope := range request.GetScopes() {
 		switch {
-		case strings.HasPrefix(scope, CustomScopeImpersonatePrefix) && request.GetExchangeActor() == "":
+		case strings.HasPrefix(scope, m.CustomScopeImpersonatePrefix) && request.GetExchangeActor() == "":
 			// Set actor subject claim for impersonation flow
 			claims = appendClaim(claims, "act", map[string]interface{}{
 				"sub": request.GetExchangeSubject(),
