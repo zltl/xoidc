@@ -43,8 +43,7 @@ var (
 // typically you would implement this as a layer on top of your database
 // for simplicity this example keeps everything in-memory
 type Storage struct {
-	lock sync.Mutex
-	// authRequests  map[string]*m.AuthRequest
+	lock          sync.Mutex
 	codes         map[string]string
 	tokens        map[string]*Token
 	userStore     UserStore

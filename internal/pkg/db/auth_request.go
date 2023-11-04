@@ -87,7 +87,7 @@ UPDATE auth_request
 SET user_id=$1,
 	done=$2,
 	auth_time=$3
-) WHERE
+WHERE
     id=$4
 `
 	_, err := s.db.ExecContext(
@@ -108,7 +108,7 @@ SET user_id=$1,
 func (s *Store) DeleteAuthRequest(ctx context.Context, id string) error {
 	tb := table.AuthRequest
 	stmt := tb.DELETE().WHERE(
-		tb.ID.EQ(String(id)),
+		tb.ID.EQ(UUID(uuid.MustParse(id))),
 	)
 
 	_, err := stmt.ExecContext(ctx, s.db)
