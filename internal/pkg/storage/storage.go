@@ -13,7 +13,6 @@ import (
 
 	jose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
 	"github.com/zltl/xoidc/pkg/m"
@@ -155,7 +154,7 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) erro
 
 	request, err := s.DB.QueryAuthRequestByID(context.TODO(), id)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return fmt.Errorf("request not found")
 	}
 
@@ -210,11 +209,11 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 		userID = "00000000-0000-0000-0000-000000000000"
 	}
 
-	logrus.Info("CreateAuthRequest, userID=", userID)
+	log.Info("CreateAuthRequest, userID=", userID)
 	// typically, you'll fill your storage / storage model with the information of the passed object
 	request := authRequestToInternal(authReq, userID)
 
-	logrus.Infof("request: %+v", request)
+	log.Infof("request: %+v", request)
 	rid, err := s.DB.StoreAuthRequest(context.TODO(), request)
 	if err != nil {
 		log.Errorf("StoreAuthRequest: %v", err)
@@ -230,7 +229,7 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 func (s *Storage) AuthRequestByID(ctx context.Context, id string) (op.AuthRequest, error) {
 	request, err := s.DB.QueryAuthRequestByID(context.Background(), id)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return nil, fmt.Errorf("request not found")
 	}
 	return request, nil
@@ -274,7 +273,7 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 
 	err := s.DB.DeleteAuthRequest(ctx, id)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return err
 	}
 
@@ -921,13 +920,13 @@ func (s *Storage) DenyDeviceAuthorization(ctx context.Context, userCode string) 
 func (s *Storage) AuthRequestDone(id string) error {
 	req, err := s.DB.QueryAuthRequestByID(context.Background(), id)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return errors.New("request not found")
 	}
 	req.IsDone = true
 	err = s.DB.UpdateAuthRequest(context.TODO(), req)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return err
 	}
 	return nil

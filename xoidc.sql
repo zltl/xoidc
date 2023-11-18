@@ -3,7 +3,7 @@
 --
 
 -- Dumped from database version 15.4 (Debian 15.4-1.pgdg120+1)
--- Dumped by pg_dump version 15.4 (Debian 15.4-1.pgdg120+1)
+-- Dumped by pg_dump version 16.1
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -21,20 +21,41 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: auth_request; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.auth_request (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    creation_date timestamp with time zone DEFAULT now() NOT NULL,
+    done boolean DEFAULT false NOT NULL,
+    auth_time timestamp with time zone DEFAULT now() NOT NULL,
+    content text DEFAULT ''::text NOT NULL,
+    namespace_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+ALTER TABLE public.auth_request OWNER TO postgres;
+
+--
 -- Name: client; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.client (
-    id bigint DEFAULT 0 NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     secret character varying(500) DEFAULT ''::character varying NOT NULL,
+    redirect_uris text[] DEFAULT '{}'::text[] NOT NULL,
     application_type integer DEFAULT 0 NOT NULL,
     auth_method character varying(200) DEFAULT ''::character varying NOT NULL,
+    response_types character varying(200)[] DEFAULT '{}'::character varying[] NOT NULL,
     access_token_type integer DEFAULT 0 NOT NULL,
-    dev_mode boolean DEFAULT false NOT NULL,
-    id_token_userinfo_claims_assertion boolean DEFAULT false NOT NULL,
-    clock_skew timestamp with time zone DEFAULT now() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    dev_mode boolean DEFAULT true NOT NULL,
+    id_token_user_info_claims_assertion boolean DEFAULT true NOT NULL,
+    clock_skew interval(6) DEFAULT '00:00:00'::interval(6) NOT NULL,
+    post_logout_redirect_uri_globs text[] DEFAULT '{}'::text[] NOT NULL,
+    redirect_uri_globs text[] DEFAULT '{}'::text[] NOT NULL,
+    user_namespace_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid NOT NULL,
+    grant_types character varying[] DEFAULT '{}'::character varying[] NOT NULL
 );
 
 
@@ -64,51 +85,14 @@ private_key_jwt';
 --
 
 COMMENT ON COLUMN public.client.access_token_type IS '0: bearer
-1: JWT';
+1:jwt';
 
-
---
--- Name: client_grant_types; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.client_grant_types (
-    client_id bigint NOT NULL,
-    grant_type character varying(200) NOT NULL
-);
-
-
-ALTER TABLE public.client_grant_types OWNER TO postgres;
-
---
--- Name: client_redirect_uris; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.client_redirect_uris (
-    client_id bigint NOT NULL,
-    redirect_uri text NOT NULL
-);
-
-
-ALTER TABLE public.client_redirect_uris OWNER TO postgres;
-
---
--- Name: client_response_types; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.client_response_types (
-    client_id bigint NOT NULL,
-    response_type character varying(200) NOT NULL
-);
-
-
-ALTER TABLE public.client_response_types OWNER TO postgres;
 
 --
 -- Name: user; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public."user" (
-    id bigint DEFAULT 0 NOT NULL,
     username character varying(200) DEFAULT ''::character varying NOT NULL,
     password text DEFAULT ''::text NOT NULL,
     nickname character varying(200) DEFAULT ''::character varying NOT NULL,
@@ -129,42 +113,27 @@ CREATE TABLE public."user" (
     phone_number_verified boolean DEFAULT false NOT NULL,
     address character varying(200) DEFAULT ''::character varying NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    namespace bigint DEFAULT 0 NOT NULL
+    namespace_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL
 );
 
 
 ALTER TABLE public."user" OWNER TO postgres;
 
 --
+-- Data for Name: auth_request; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.auth_request (id, creation_date, done, auth_time, content, namespace_id, user_id) FROM stdin;
+\.
+
+
+--
 -- Data for Name: client; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.client (id, secret, application_type, auth_method, access_token_type, dev_mode, id_token_userinfo_claims_assertion, clock_skew, created_at, updated_at) FROM stdin;
-0	123456	0	none	0	f	f	2023-08-13 11:16:34.000629+00	2023-08-13 11:16:34.000629+00	2023-08-13 11:16:34.000629+00
-\.
-
-
---
--- Data for Name: client_grant_types; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.client_grant_types (client_id, grant_type) FROM stdin;
-\.
-
-
---
--- Data for Name: client_redirect_uris; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.client_redirect_uris (client_id, redirect_uri) FROM stdin;
-\.
-
-
---
--- Data for Name: client_response_types; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.client_response_types (client_id, response_type) FROM stdin;
+COPY public.client (id, secret, redirect_uris, application_type, auth_method, response_types, access_token_type, dev_mode, id_token_user_info_claims_assertion, clock_skew, post_logout_redirect_uri_globs, redirect_uri_globs, user_namespace_id, grant_types) FROM stdin;
+674fc25c-7772-45e3-835d-3b77b16a2937	123456	{custom://auth/callback,http://localhost:9999/auth/callback,http://localhost/auth/callback}	0	client_secret_basic	{code}	0	t	t	01:05:00	{}	{}	00000000-0000-0000-0000-000000000000	{authorization_code,refresh_token,urn:ietf:params:oauth:grant-type:token-exchange}
 \.
 
 
@@ -172,49 +141,25 @@ COPY public.client_response_types (client_id, response_type) FROM stdin;
 -- Data for Name: user; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public."user" (id, username, password, nickname, given_name, family_name, middle_name, preferred_username, profile, picture, website, email, email_verified, gender, birthdate, zoneinfo, locale, phone_number, phone_number_verified, address, updated_at, namespace) FROM stdin;
-1	test	$argon2id$v=19$m=19456,t=2,p=1$Z0CCH0FfcFXsHnxDTfvXXQ$KqH1dzTda/0Mrj63scfybiTVGCjHxjmZHTfwMpRyOSc	test	test	test	test	test				test@email.com	f		2023-08-13				f		2023-08-13 10:33:13.160209+00	0
+COPY public."user" (username, password, nickname, given_name, family_name, middle_name, preferred_username, profile, picture, website, email, email_verified, gender, birthdate, zoneinfo, locale, phone_number, phone_number_verified, address, updated_at, namespace_id, id) FROM stdin;
+test	$argon2id$v=19$m=19456,t=2,p=1$Z0CCH0FfcFXsHnxDTfvXXQ$KqH1dzTda/0Mrj63scfybiTVGCjHxjmZHTfwMpRyOSc	test	test	test	test	test				test@email.com	f		2023-08-13				f		2023-08-13 10:33:13.160209+00	00000000-0000-0000-0000-000000000000	744d9044-f29d-42e8-a65e-e6c52398fa1f
 \.
 
 
 --
--- Name: client_grant_types client_grant_types_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_request auth_request_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.client_grant_types
-    ADD CONSTRAINT client_grant_types_pkey PRIMARY KEY (client_id, grant_type);
+ALTER TABLE ONLY public.auth_request
+    ADD CONSTRAINT auth_request_pkey PRIMARY KEY (id);
 
 
 --
--- Name: client client_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: client client_new_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.client
-    ADD CONSTRAINT client_pkey PRIMARY KEY (id_token_userinfo_claims_assertion);
-
-
---
--- Name: client_redirect_uris client_redirect_uris_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.client_redirect_uris
-    ADD CONSTRAINT client_redirect_uris_pkey PRIMARY KEY (client_id, redirect_uri);
-
-
---
--- Name: client_response_types client_response_type_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.client_response_types
-    ADD CONSTRAINT client_response_type_pkey PRIMARY KEY (client_id, response_type);
-
-
---
--- Name: user idid; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public."user"
-    ADD CONSTRAINT idid PRIMARY KEY (id, namespace);
+    ADD CONSTRAINT client_new_pkey PRIMARY KEY (id_token_user_info_claims_assertion);
 
 
 --
