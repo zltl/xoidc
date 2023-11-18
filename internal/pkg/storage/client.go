@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 	"github.com/zltl/xoidc/internal/pkg/db"
@@ -103,7 +102,6 @@ func (c *Client) GetID() string {
 
 // RedirectURIs must return the registered redirect_uris for Code and Implicit Flow
 func (c *Client) RedirectURIs() []string {
-	logrus.Errorf("redirectURIs: %v", c.redirectURIs)
 	return c.redirectURIs
 }
 
