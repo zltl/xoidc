@@ -17,16 +17,20 @@ type clientTable struct {
 	postgres.Table
 
 	// Columns
-	ID                             postgres.ColumnInteger
+	ID                             postgres.ColumnString
 	Secret                         postgres.ColumnString
+	RedirectUris                   postgres.ColumnString
 	ApplicationType                postgres.ColumnInteger
 	AuthMethod                     postgres.ColumnString
+	ResponseTypes                  postgres.ColumnString
 	AccessTokenType                postgres.ColumnInteger
 	DevMode                        postgres.ColumnBool
-	IDTokenUserinfoClaimsAssertion postgres.ColumnBool
-	ClockSkew                      postgres.ColumnTimestampz
-	CreatedAt                      postgres.ColumnTimestampz
-	UpdatedAt                      postgres.ColumnTimestampz
+	IDTokenUserInfoClaimsAssertion postgres.ColumnBool
+	ClockSkew                      postgres.ColumnInterval
+	PostLogoutRedirectURIGlobs     postgres.ColumnString
+	RedirectURIGlobs               postgres.ColumnString
+	UserNamespaceID                postgres.ColumnString
+	GrantTypes                     postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -67,18 +71,22 @@ func newClientTable(schemaName, tableName, alias string) *ClientTable {
 
 func newClientTableImpl(schemaName, tableName, alias string) clientTable {
 	var (
-		IDColumn                             = postgres.IntegerColumn("id")
+		IDColumn                             = postgres.StringColumn("id")
 		SecretColumn                         = postgres.StringColumn("secret")
+		RedirectUrisColumn                   = postgres.StringColumn("redirect_uris")
 		ApplicationTypeColumn                = postgres.IntegerColumn("application_type")
 		AuthMethodColumn                     = postgres.StringColumn("auth_method")
+		ResponseTypesColumn                  = postgres.StringColumn("response_types")
 		AccessTokenTypeColumn                = postgres.IntegerColumn("access_token_type")
 		DevModeColumn                        = postgres.BoolColumn("dev_mode")
-		IDTokenUserinfoClaimsAssertionColumn = postgres.BoolColumn("id_token_userinfo_claims_assertion")
-		ClockSkewColumn                      = postgres.TimestampzColumn("clock_skew")
-		CreatedAtColumn                      = postgres.TimestampzColumn("created_at")
-		UpdatedAtColumn                      = postgres.TimestampzColumn("updated_at")
-		allColumns                           = postgres.ColumnList{IDColumn, SecretColumn, ApplicationTypeColumn, AuthMethodColumn, AccessTokenTypeColumn, DevModeColumn, IDTokenUserinfoClaimsAssertionColumn, ClockSkewColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns                       = postgres.ColumnList{IDColumn, SecretColumn, ApplicationTypeColumn, AuthMethodColumn, AccessTokenTypeColumn, DevModeColumn, ClockSkewColumn, CreatedAtColumn, UpdatedAtColumn}
+		IDTokenUserInfoClaimsAssertionColumn = postgres.BoolColumn("id_token_user_info_claims_assertion")
+		ClockSkewColumn                      = postgres.IntervalColumn("clock_skew")
+		PostLogoutRedirectURIGlobsColumn     = postgres.StringColumn("post_logout_redirect_uri_globs")
+		RedirectURIGlobsColumn               = postgres.StringColumn("redirect_uri_globs")
+		UserNamespaceIDColumn                = postgres.StringColumn("user_namespace_id")
+		GrantTypesColumn                     = postgres.StringColumn("grant_types")
+		allColumns                           = postgres.ColumnList{IDColumn, SecretColumn, RedirectUrisColumn, ApplicationTypeColumn, AuthMethodColumn, ResponseTypesColumn, AccessTokenTypeColumn, DevModeColumn, IDTokenUserInfoClaimsAssertionColumn, ClockSkewColumn, PostLogoutRedirectURIGlobsColumn, RedirectURIGlobsColumn, UserNamespaceIDColumn, GrantTypesColumn}
+		mutableColumns                       = postgres.ColumnList{IDColumn, SecretColumn, RedirectUrisColumn, ApplicationTypeColumn, AuthMethodColumn, ResponseTypesColumn, AccessTokenTypeColumn, DevModeColumn, ClockSkewColumn, PostLogoutRedirectURIGlobsColumn, RedirectURIGlobsColumn, UserNamespaceIDColumn, GrantTypesColumn}
 	)
 
 	return clientTable{
@@ -87,14 +95,18 @@ func newClientTableImpl(schemaName, tableName, alias string) clientTable {
 		//Columns
 		ID:                             IDColumn,
 		Secret:                         SecretColumn,
+		RedirectUris:                   RedirectUrisColumn,
 		ApplicationType:                ApplicationTypeColumn,
 		AuthMethod:                     AuthMethodColumn,
+		ResponseTypes:                  ResponseTypesColumn,
 		AccessTokenType:                AccessTokenTypeColumn,
 		DevMode:                        DevModeColumn,
-		IDTokenUserinfoClaimsAssertion: IDTokenUserinfoClaimsAssertionColumn,
+		IDTokenUserInfoClaimsAssertion: IDTokenUserInfoClaimsAssertionColumn,
 		ClockSkew:                      ClockSkewColumn,
-		CreatedAt:                      CreatedAtColumn,
-		UpdatedAt:                      UpdatedAtColumn,
+		PostLogoutRedirectURIGlobs:     PostLogoutRedirectURIGlobsColumn,
+		RedirectURIGlobs:               RedirectURIGlobsColumn,
+		UserNamespaceID:                UserNamespaceIDColumn,
+		GrantTypes:                     GrantTypesColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

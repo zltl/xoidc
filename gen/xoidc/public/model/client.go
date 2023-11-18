@@ -8,18 +8,22 @@
 package model
 
 import (
-	"time"
+	"github.com/google/uuid"
 )
 
 type Client struct {
-	ID                             int64
+	ID                             uuid.UUID
 	Secret                         string
+	RedirectUris                   string
 	ApplicationType                int32
 	AuthMethod                     string
+	ResponseTypes                  string
 	AccessTokenType                int32
 	DevMode                        bool
-	IDTokenUserinfoClaimsAssertion bool `sql:"primary_key"`
-	ClockSkew                      time.Time
-	CreatedAt                      time.Time
-	UpdatedAt                      time.Time
+	IDTokenUserInfoClaimsAssertion bool `sql:"primary_key"`
+	ClockSkew                      string
+	PostLogoutRedirectURIGlobs     string
+	RedirectURIGlobs               string
+	UserNamespaceID                uuid.UUID
+	GrantTypes                     string
 }

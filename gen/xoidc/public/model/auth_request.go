@@ -19,4 +19,5 @@ type AuthRequest struct {
 	Done         bool
 	AuthTime     time.Time
 	Content      string
+	NamespaceID  uuid.UUID
 }

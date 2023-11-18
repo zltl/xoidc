@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/snowflake"
 	jose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -121,7 +120,7 @@ func NewStorage(u UserStore, d *db.Store) *Storage {
 		userCodes:   make(map[string]string),
 		serviceUsers: map[string]*Client{
 			"sid1": {
-				id:     "sid1",
+				// id:     "sid1",
 				secret: "verysecret",
 				grantTypes: []oidc.GrantType{
 					oidc.GrantTypeClientCredentials,
@@ -134,52 +133,20 @@ func NewStorage(u UserStore, d *db.Store) *Storage {
 
 func (s *Storage) GetClient(ctx context.Context, id string) (*Client, error) {
 	log.Tracef("GetClient: id=%s", id)
-	c, err := s.DB.GetClientByID(ctx, id)
+
+	clientID, err := uuid.Parse(id)
+	if err != nil {
+		log.Errorf("Parse: %v", err)
+		return nil, err
+	}
+
+	c, err := s.DB.GetClientByID(ctx, clientID)
 	if err != nil {
 		log.Errorf("GetClientByID: %v", err)
 		return nil, err
 	}
-	gt, err := s.DB.GetClientGrantTypes(ctx, id)
-	if err != nil {
-		log.Errorf("GetGrantTypes: %v", err)
-		return nil, err
-	}
-	uri, err := s.DB.GetClientRedirectURIs(ctx, id)
-	if err != nil {
-		log.Errorf("GetClientRedirectURIs: %v", err)
-		return nil, err
-	}
-	rest, err := s.DB.GetClientResponseTypes(ctx, id)
-	if err != nil {
-		log.Errorf("GetClientResponseTypes: %v", err)
-		return nil, err
-	}
 
-	var gts []oidc.GrantType
-	for _, g := range gt {
-		gts = append(gts, oidc.GrantType(g))
-	}
-	var rests []oidc.ResponseType
-	for _, r := range rest {
-		rests = append(rests, oidc.ResponseType(r))
-	}
-
-	return &Client{
-		id:                             snowflake.ID(c.ID).Base64(),
-		secret:                         c.Secret,
-		redirectURIs:                   uri,
-		applicationType:                op.ApplicationType(c.ApplicationType),
-		authMethod:                     oidc.AuthMethod(c.AuthMethod),
-		loginURL:                       defaultLoginURL,
-		responseTypes:                  rests,
-		grantTypes:                     gts,
-		accessTokenType:                op.AccessTokenType(c.AccessTokenType),
-		devMode:                        c.DevMode,
-		idTokenUserinfoClaimsAssertion: false,
-		clockSkew:                      0,
-		postLogoutRedirectURIGlobs:     nil,
-		redirectURIGlobs:               nil,
-	}, nil
+	return clientInternalConvert(c), nil
 }
 
 // CheckUsernamePassword implements the `authenticate` interface of the login
@@ -985,7 +952,7 @@ func (s *Storage) ClientCredentialsTokenRequest(ctx context.Context, clientID st
 	}
 
 	return &oidc.JWTTokenRequest{
-		Subject:  client.id,
+		Subject:  client.id.String(),
 		Audience: []string{clientID},
 		Scopes:   scopes,
 	}, nil

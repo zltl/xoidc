@@ -12,8 +12,5 @@ package table
 func UseSchema(schema string) {
 	AuthRequest = AuthRequest.FromSchema(schema)
 	Client = Client.FromSchema(schema)
-	ClientGrantTypes = ClientGrantTypes.FromSchema(schema)
-	ClientRedirectUris = ClientRedirectUris.FromSchema(schema)
-	ClientResponseTypes = ClientResponseTypes.FromSchema(schema)
 	User = User.FromSchema(schema)
 }

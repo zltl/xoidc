@@ -4,8 +4,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
+	"github.com/zltl/xoidc/internal/pkg/db"
 	"github.com/zltl/xoidc/pkg/m"
 )
 
@@ -19,7 +22,7 @@ var (
 // Client represents the storage model of an OAuth/OIDC client
 // this could also be your database model
 type Client struct {
-	id                             string
+	id                             uuid.UUID
 	secret                         string
 	redirectURIs                   []string
 	applicationType                op.ApplicationType
@@ -33,15 +36,74 @@ type Client struct {
 	clockSkew                      time.Duration
 	postLogoutRedirectURIGlobs     []string
 	redirectURIGlobs               []string
+	userNamespaceID                uuid.UUID
+}
+
+func clientInternalConvert(c *db.Client) *Client {
+	responseType := make([]oidc.ResponseType, len(c.ResponseTypes))
+	for i, rt := range c.ResponseTypes {
+		responseType[i] = oidc.ResponseType(rt)
+	}
+	grantTypes := make([]oidc.GrantType, len(c.GrantTypes))
+	for i, gt := range c.GrantTypes {
+		grantTypes[i] = oidc.GrantType(gt)
+	}
+
+	return &Client{
+		id:                             c.ID,
+		secret:                         c.Secret,
+		redirectURIs:                   c.RedirectURIs,
+		applicationType:                op.ApplicationType(c.ApplicationType),
+		authMethod:                     oidc.AuthMethod(c.AuthMethod),
+		loginURL:                       defaultLoginURL,
+		responseTypes:                  responseType,
+		grantTypes:                     grantTypes,
+		accessTokenType:                op.AccessTokenType(c.AccessTokenType),
+		devMode:                        c.DevMode,
+		idTokenUserinfoClaimsAssertion: false,
+		clockSkew:                      c.ClockSkew,
+		postLogoutRedirectURIGlobs:     c.PostLogoutRedirectURIGlobs,
+		redirectURIGlobs:               c.RedirectURIGlobs,
+		userNamespaceID:                c.UserNamespaceID,
+	}
+}
+
+func clientConvertInternal(c *Client) *db.Client {
+	grantTypes := make([]string, len(c.grantTypes))
+	for i, gt := range c.grantTypes {
+		grantTypes[i] = string(gt)
+	}
+	responseTypes := make([]string, len(c.responseTypes))
+	for i, rt := range c.responseTypes {
+		responseTypes[i] = string(rt)
+	}
+
+	return &db.Client{
+		ID:                             c.id,
+		Secret:                         c.secret,
+		RedirectURIs:                   c.redirectURIs,
+		ApplicationType:                int(c.applicationType),
+		AuthMethod:                     string(c.authMethod),
+		ResponseTypes:                  responseTypes,
+		GrantTypes:                     grantTypes,
+		AccessTokenType:                int(c.accessTokenType),
+		DevMode:                        c.devMode,
+		IDTokenUserInfoClaimsAssertion: c.idTokenUserinfoClaimsAssertion,
+		ClockSkew:                      c.clockSkew,
+		PostLogoutRedirectURIGlobs:     c.postLogoutRedirectURIGlobs,
+		RedirectURIGlobs:               c.redirectURIGlobs,
+		UserNamespaceID:                c.userNamespaceID,
+	}
 }
 
 // GetID must return the client_id
 func (c *Client) GetID() string {
-	return c.id
+	return c.id.String()
 }
 
 // RedirectURIs must return the registered redirect_uris for Code and Implicit Flow
 func (c *Client) RedirectURIs() []string {
+	logrus.Errorf("redirectURIs: %v", c.redirectURIs)
 	return c.redirectURIs
 }
 
@@ -152,7 +214,7 @@ func NativeClient(id string, redirectURIs ...string) *Client {
 		}
 	}
 	return &Client{
-		id:                             id,
+		id:                             uuid.MustParse(id),
 		secret:                         "", // no secret needed (due to PKCE)
 		redirectURIs:                   redirectURIs,
 		applicationType:                op.ApplicationTypeNative,
@@ -178,7 +240,7 @@ func WebClient(id, secret string, redirectURIs ...string) *Client {
 		}
 	}
 	return &Client{
-		id:                             id,
+		id:                             uuid.MustParse(id),
 		secret:                         secret,
 		redirectURIs:                   redirectURIs,
 		applicationType:                op.ApplicationTypeWeb,
@@ -196,7 +258,7 @@ func WebClient(id, secret string, redirectURIs ...string) *Client {
 // DeviceClient creates a device client with Basic authentication.
 func DeviceClient(id, secret string) *Client {
 	return &Client{
-		id:                             id,
+		id:                             uuid.MustParse(id),
 		secret:                         secret,
 		redirectURIs:                   nil,
 		applicationType:                op.ApplicationTypeWeb,

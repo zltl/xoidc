@@ -23,6 +23,7 @@ type authRequestTable struct {
 	Done         postgres.ColumnBool
 	AuthTime     postgres.ColumnTimestampz
 	Content      postgres.ColumnString
+	NamespaceID  postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -69,8 +70,9 @@ func newAuthRequestTableImpl(schemaName, tableName, alias string) authRequestTab
 		DoneColumn         = postgres.BoolColumn("done")
 		AuthTimeColumn     = postgres.TimestampzColumn("auth_time")
 		ContentColumn      = postgres.StringColumn("content")
-		allColumns         = postgres.ColumnList{IDColumn, CreationDateColumn, UserIDColumn, DoneColumn, AuthTimeColumn, ContentColumn}
-		mutableColumns     = postgres.ColumnList{CreationDateColumn, UserIDColumn, DoneColumn, AuthTimeColumn, ContentColumn}
+		NamespaceIDColumn  = postgres.StringColumn("namespace_id")
+		allColumns         = postgres.ColumnList{IDColumn, CreationDateColumn, UserIDColumn, DoneColumn, AuthTimeColumn, ContentColumn, NamespaceIDColumn}
+		mutableColumns     = postgres.ColumnList{CreationDateColumn, UserIDColumn, DoneColumn, AuthTimeColumn, ContentColumn, NamespaceIDColumn}
 	)
 
 	return authRequestTable{
@@ -83,6 +85,7 @@ func newAuthRequestTableImpl(schemaName, tableName, alias string) authRequestTab
 		Done:         DoneColumn,
 		AuthTime:     AuthTimeColumn,
 		Content:      ContentColumn,
+		NamespaceID:  NamespaceIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,
