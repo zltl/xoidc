@@ -12,7 +12,6 @@ import (
 	"golang.org/x/exp/slog"
 	"golang.org/x/text/language"
 
-	"github.com/zitadel/oidc/v3/example/server/storage"
 	"github.com/zitadel/oidc/v3/pkg/op"
 )
 
@@ -20,18 +19,10 @@ const (
 	pathLoggedOut = "/logged-out"
 )
 
-func init() {
-	storage.RegisterClients(
-		storage.NativeClient("native"),
-		storage.WebClient("web", "secret"),
-		storage.WebClient("api", "secret"),
-	)
-}
-
 type Storage interface {
 	op.Storage
 	authenticate
-	deviceAuthenticate
+	// deviceAuthenticate
 }
 
 // simple counter for request IDs
@@ -73,10 +64,6 @@ func SetupServer(issuer string, storage Storage, logger *slog.Logger, wrapServer
 	// regardless of how many pages / steps there are in the process, the UI must be registered in the router,
 	// so we will direct all calls to /login to the login UI
 	router.Mount("/login/", http.StripPrefix("/login", l.router))
-
-	router.Route("/device", func(r chi.Router) {
-		registerDeviceAuth(storage, r)
-	})
 
 	handler := http.Handler(provider)
 	if wrapServer {

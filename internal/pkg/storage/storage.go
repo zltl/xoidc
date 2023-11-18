@@ -158,7 +158,10 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) erro
 		return fmt.Errorf("request not found")
 	}
 
-	us, err := s.DB.GetUserByUsername(context.TODO(), username)
+	clientIDStr := request.GetClientID()
+	clientID := uuid.MustParse(clientIDStr)
+
+	us, err := s.DB.GetUserByUsername(context.TODO(), username, clientID)
 	if err != nil {
 		log.Errorf("QueryPassword: %v", err)
 		return err
@@ -184,6 +187,7 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) erro
 	return fmt.Errorf("username or password wrong")
 }
 
+/*
 func (s *Storage) CheckUsernamePasswordSimple(username, password string) error {
 	log.Tracef("CheckUsernamePasswordSimple: username=%s", username)
 	s.lock.Lock()
@@ -195,6 +199,7 @@ func (s *Storage) CheckUsernamePasswordSimple(username, password string) error {
 	}
 	return fmt.Errorf("username or password wrong")
 }
+*/
 
 // CreateAuthRequest implements the op.Storage interface
 // it will be called after parsing and validation of the authentication request

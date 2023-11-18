@@ -68,22 +68,29 @@ func (s *Store) GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, err
 	return u, nil
 }
 
-func (s *Store) GetUserByUsername(ctx context.Context, name string) (*model.User, error) {
-	tb := table.User
-	stmt := tb.SELECT(
-		tb.ID,
-		tb.Username,
-		tb.Password,
-		tb.GivenName,
-		tb.FamilyName,
-		tb.Email,
-		tb.EmailVerified,
-		tb.PhoneNumber,
-		tb.PhoneNumberVerified,
-		tb.Locale,
+func (s *Store) GetUserByUsername(ctx context.Context, name string, clientID uuid.UUID) (*model.User, error) {
+	stmt := SELECT(
+		table.User.ID,
+		table.User.Username,
+		table.User.Password,
+		table.User.GivenName,
+		table.User.FamilyName,
+		table.User.Email,
+		table.User.EmailVerified,
+		table.User.PhoneNumber,
+		table.User.PhoneNumberVerified,
+		table.User.Locale,
+	).FROM(
+		table.User,
+		table.Client,
 	).WHERE(
-		tb.Username.EQ(String(name)),
+		AND(
+			table.User.NamespaceID.EQ(table.Client.UserNamespaceID),
+			table.User.Username.EQ(String(name)),
+			table.Client.ID.EQ(UUID(clientID)),
+		),
 	)
+
 	cmd, args := stmt.Sql()
 	u := &model.User{}
 	logrus.Debugf("args=%+v", args)

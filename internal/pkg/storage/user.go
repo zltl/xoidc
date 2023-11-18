@@ -29,7 +29,7 @@ type Service struct {
 
 type UserStore interface {
 	GetUserByID(string) *User
-	GetUserByUsername(string) *User
+	// GetUserByUsername(string) *User
 	ExampleClientID() string
 }
 
@@ -64,6 +64,7 @@ func (u userStore) GetUserByID(id string) *User {
 	}
 }
 
+/*
 func (u userStore) GetUserByUsername(username string) *User {
 	us, err := u.DB.GetUserByUsername(context.TODO(), username)
 	if err != nil {
@@ -81,3 +82,4 @@ func (u userStore) GetUserByUsername(username string) *User {
 		PhoneVerified: us.PhoneNumberVerified,
 	}
 }
+*/

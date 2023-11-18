@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
 
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
 	"github.com/zltl/xoidc/internal/pkg/exampleop"
@@ -39,9 +37,6 @@ func main() {
 	// in this example it will be handled in-memory
 	ustore := storage.NewUserStore(issuer)
 	storage := storage.NewStorage(ustore, mdb)
-
-	storage.DB.GetClientByID(context.TODO(),
-		uuid.MustParse("674fc25c-7772-45e3-835d-3b77b16a2937"))
 
 	logger := slog.New(
 		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
