@@ -19,11 +19,11 @@ type authRequestTable struct {
 	// Columns
 	ID           postgres.ColumnString
 	CreationDate postgres.ColumnTimestampz
-	UserID       postgres.ColumnInteger
 	Done         postgres.ColumnBool
 	AuthTime     postgres.ColumnTimestampz
 	Content      postgres.ColumnString
 	NamespaceID  postgres.ColumnString
+	UserID       postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -66,13 +66,13 @@ func newAuthRequestTableImpl(schemaName, tableName, alias string) authRequestTab
 	var (
 		IDColumn           = postgres.StringColumn("id")
 		CreationDateColumn = postgres.TimestampzColumn("creation_date")
-		UserIDColumn       = postgres.IntegerColumn("user_id")
 		DoneColumn         = postgres.BoolColumn("done")
 		AuthTimeColumn     = postgres.TimestampzColumn("auth_time")
 		ContentColumn      = postgres.StringColumn("content")
 		NamespaceIDColumn  = postgres.StringColumn("namespace_id")
-		allColumns         = postgres.ColumnList{IDColumn, CreationDateColumn, UserIDColumn, DoneColumn, AuthTimeColumn, ContentColumn, NamespaceIDColumn}
-		mutableColumns     = postgres.ColumnList{CreationDateColumn, UserIDColumn, DoneColumn, AuthTimeColumn, ContentColumn, NamespaceIDColumn}
+		UserIDColumn       = postgres.StringColumn("user_id")
+		allColumns         = postgres.ColumnList{IDColumn, CreationDateColumn, DoneColumn, AuthTimeColumn, ContentColumn, NamespaceIDColumn, UserIDColumn}
+		mutableColumns     = postgres.ColumnList{CreationDateColumn, DoneColumn, AuthTimeColumn, ContentColumn, NamespaceIDColumn, UserIDColumn}
 	)
 
 	return authRequestTable{
@@ -81,11 +81,11 @@ func newAuthRequestTableImpl(schemaName, tableName, alias string) authRequestTab
 		//Columns
 		ID:           IDColumn,
 		CreationDate: CreationDateColumn,
-		UserID:       UserIDColumn,
 		Done:         DoneColumn,
 		AuthTime:     AuthTimeColumn,
 		Content:      ContentColumn,
 		NamespaceID:  NamespaceIDColumn,
+		UserID:       UserIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

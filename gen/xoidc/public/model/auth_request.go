@@ -15,9 +15,9 @@ import (
 type AuthRequest struct {
 	ID           uuid.UUID `sql:"primary_key"`
 	CreationDate time.Time
-	UserID       *int64
 	Done         bool
 	AuthTime     time.Time
 	Content      string
 	NamespaceID  uuid.UUID
+	UserID       uuid.UUID
 }

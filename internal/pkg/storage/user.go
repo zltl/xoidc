@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 
-	"github.com/bwmarrin/snowflake"
+	"github.com/google/uuid"
 	"github.com/zltl/xoidc/internal/pkg/db"
 	"golang.org/x/text/language"
 )
@@ -34,7 +34,7 @@ type UserStore interface {
 }
 
 type userStore struct {
-	DB    *db.Store
+	DB *db.Store
 }
 
 func NewUserStore(issuer string) UserStore {
@@ -47,13 +47,12 @@ func (u userStore) ExampleClientID() string {
 }
 
 func (u userStore) GetUserByID(id string) *User {
-	us, err := u.DB.GetUserByID(context.TODO(), id)
+	us, err := u.DB.GetUserByID(context.TODO(), uuid.MustParse(id))
 	if err != nil {
 		return nil
 	}
-	sid := snowflake.ID(us.ID)
 	return &User{
-		ID:            sid.Base64(),
+		ID:            us.ID.String(),
 		Username:      us.Username,
 		Password:      us.Password,
 		FirstName:     us.GivenName,
@@ -70,9 +69,8 @@ func (u userStore) GetUserByUsername(username string) *User {
 	if err != nil {
 		return nil
 	}
-	sid := snowflake.ID(us.ID)
 	return &User{
-		ID:            sid.Base64(),
+		ID:            us.ID.String(),
 		Username:      us.Username,
 		Password:      us.Password,
 		FirstName:     us.GivenName,

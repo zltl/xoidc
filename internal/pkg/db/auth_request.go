@@ -32,7 +32,7 @@ func (s *Store) QueryAuthRequestByID(ctx context.Context, id string) (*m.AuthReq
 	a := &m.AuthRequest{
 		ID:           res.ID.String(),
 		CreationDate: res.CreationDate,
-		UserID:       m.UserID(*res.UserID),
+		UserID:       res.UserID,
 		IsDone:       res.Done,
 		AuthTime:     res.AuthTime,
 	}

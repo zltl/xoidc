@@ -3,6 +3,7 @@ package storage
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
@@ -33,7 +34,7 @@ func MaxAgeToInternal(maxAge *uint) *time.Duration {
 
 func authRequestToInternal(authReq *oidc.AuthRequest, userID string) *m.AuthRequest {
 	logrus.Infof("userID: %s", userID)
-	u, err := m.ParseUserID(userID)
+	u, err := uuid.Parse(userID)
 	if err != nil {
 		logrus.Error(err)
 		return nil

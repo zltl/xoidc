@@ -17,7 +17,6 @@ type userTable struct {
 	postgres.Table
 
 	// Columns
-	ID                  postgres.ColumnInteger
 	Username            postgres.ColumnString
 	Password            postgres.ColumnString
 	Nickname            postgres.ColumnString
@@ -38,7 +37,8 @@ type userTable struct {
 	PhoneNumberVerified postgres.ColumnBool
 	Address             postgres.ColumnString
 	UpdatedAt           postgres.ColumnTimestampz
-	Namespace           postgres.ColumnInteger
+	NamespaceID         postgres.ColumnString
+	ID                  postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -79,7 +79,6 @@ func newUserTable(schemaName, tableName, alias string) *UserTable {
 
 func newUserTableImpl(schemaName, tableName, alias string) userTable {
 	var (
-		IDColumn                  = postgres.IntegerColumn("id")
 		UsernameColumn            = postgres.StringColumn("username")
 		PasswordColumn            = postgres.StringColumn("password")
 		NicknameColumn            = postgres.StringColumn("nickname")
@@ -100,16 +99,16 @@ func newUserTableImpl(schemaName, tableName, alias string) userTable {
 		PhoneNumberVerifiedColumn = postgres.BoolColumn("phone_number_verified")
 		AddressColumn             = postgres.StringColumn("address")
 		UpdatedAtColumn           = postgres.TimestampzColumn("updated_at")
-		NamespaceColumn           = postgres.IntegerColumn("namespace")
-		allColumns                = postgres.ColumnList{IDColumn, UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn, NamespaceColumn}
-		mutableColumns            = postgres.ColumnList{UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn}
+		NamespaceIDColumn         = postgres.StringColumn("namespace_id")
+		IDColumn                  = postgres.StringColumn("id")
+		allColumns                = postgres.ColumnList{UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn, NamespaceIDColumn, IDColumn}
+		mutableColumns            = postgres.ColumnList{UsernameColumn, PasswordColumn, NicknameColumn, GivenNameColumn, FamilyNameColumn, MiddleNameColumn, PreferredUsernameColumn, ProfileColumn, PictureColumn, WebsiteColumn, EmailColumn, EmailVerifiedColumn, GenderColumn, BirthdateColumn, ZoneinfoColumn, LocaleColumn, PhoneNumberColumn, PhoneNumberVerifiedColumn, AddressColumn, UpdatedAtColumn, NamespaceIDColumn, IDColumn}
 	)
 
 	return userTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:                  IDColumn,
 		Username:            UsernameColumn,
 		Password:            PasswordColumn,
 		Nickname:            NicknameColumn,
@@ -130,7 +129,8 @@ func newUserTableImpl(schemaName, tableName, alias string) userTable {
 		PhoneNumberVerified: PhoneNumberVerifiedColumn,
 		Address:             AddressColumn,
 		UpdatedAt:           UpdatedAtColumn,
-		Namespace:           NamespaceColumn,
+		NamespaceID:         NamespaceIDColumn,
+		ID:                  IDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

@@ -5,6 +5,7 @@ import (
 
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
@@ -25,7 +26,7 @@ type AuthRequest struct {
 	ID           string
 	CreationDate time.Time
 	AuthReq      oidc.AuthRequest
-	UserID       UserID
+	UserID       uuid.UUID
 	IsDone       bool
 	AuthTime     time.Time
 }

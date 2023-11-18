@@ -8,11 +8,11 @@
 package model
 
 import (
+	"github.com/google/uuid"
 	"time"
 )
 
 type User struct {
-	ID                  int64 `sql:"primary_key"`
 	Username            string
 	Password            string
 	Nickname            string
@@ -33,5 +33,6 @@ type User struct {
 	PhoneNumberVerified bool
 	Address             string
 	UpdatedAt           time.Time
-	Namespace           int64 `sql:"primary_key"`
+	NamespaceID         uuid.UUID
+	ID                  uuid.UUID
 }

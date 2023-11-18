@@ -170,9 +170,8 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) erro
 		log.Errorf("ComparePasswordAndHash: %v", err)
 		return err
 	}
-	sid := m.UserIDFromInt64(us.ID)
 	if match {
-		request.UserID = sid
+		request.UserID = us.ID
 		request.IsDone = true
 
 		err = s.DB.UpdateAuthRequest(context.Background(), request)
@@ -205,6 +204,10 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 		// With prompt=none, there is no way for the user to log in
 		// so return error right away.
 		return nil, oidc.ErrLoginRequired()
+	}
+
+	if userID == "" {
+		userID = "00000000-0000-0000-0000-000000000000"
 	}
 
 	logrus.Info("CreateAuthRequest, userID=", userID)
