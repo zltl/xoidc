@@ -7,7 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
-	"github.com/zltl/xoidc/pkg/m"
 )
 
 func PromptToInternal(oidcPrompt oidc.SpaceDelimitedArray) []string {
@@ -32,14 +31,14 @@ func MaxAgeToInternal(maxAge *uint) *time.Duration {
 	return &dur
 }
 
-func authRequestToInternal(authReq *oidc.AuthRequest, userID string) *m.AuthRequest {
+func authRequestToInternal(authReq *oidc.AuthRequest, userID string) *AuthRequest {
 	logrus.Infof("userID: %s", userID)
 	u, err := uuid.Parse(userID)
 	if err != nil {
 		logrus.Error(err)
 		return nil
 	}
-	return &m.AuthRequest{
+	return &AuthRequest{
 		AuthReq:      *authReq,
 		CreationDate: time.Now(),
 		UserID:       u,

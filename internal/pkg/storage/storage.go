@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"database/sql"
 	"errors"
 	"fmt"
 	"math/big"
@@ -13,9 +14,11 @@ import (
 
 	jose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+	sqldblogger "github.com/simukti/sqldb-logger"
+	"github.com/simukti/sqldb-logger/logadapter/logrusadapter"
 	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/internal/pkg/db"
-	"github.com/zltl/xoidc/pkg/m"
 	"github.com/zltl/xoidc/pkg/password"
 
 	"github.com/zitadel/oidc/v3/pkg/oidc"
@@ -32,11 +35,6 @@ var serviceKey1 = &rsa.PublicKey{
 	E: 65537,
 }
 
-var (
-	_ op.Storage                  = &Storage{}
-	_ op.ClientCredentialsStorage = &Storage{}
-)
-
 // storage implements the op.Storage interface
 // typically you would implement this as a layer on top of your database
 // for simplicity this example keeps everything in-memory
@@ -51,6 +49,14 @@ type Storage struct {
 	deviceCodes   map[string]deviceAuthorizationEntry
 	userCodes     map[string]string
 	serviceUsers  map[string]*Client
+
+	PGHost     string
+	PGPort     int
+	PGUsername string
+	PGPassword string
+	PGDBName   string
+
+	db *sql.DB
 
 	DB *db.Store
 }
@@ -93,6 +99,28 @@ func (s *publicKey) Key() interface{} {
 	return &s.key.PublicKey
 }
 
+// open sql connection
+func (s *Storage) Open() error {
+	info := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		s.PGHost, s.PGPort, s.PGUsername, s.PGPassword, s.PGDBName)
+
+	loggerdb := sqldblogger.OpenDriver(
+		info,
+		&pq.Driver{},
+		logrusadapter.New(log.StandardLogger()),
+	)
+
+	s.db = loggerdb
+
+	err := s.db.Ping()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TODO: remove it
 func NewStorage(u UserStore, d *db.Store) *Storage {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	u.(*userStore).DB = d
@@ -138,21 +166,20 @@ func (s *Storage) GetClient(ctx context.Context, id string) (*Client, error) {
 		log.Errorf("Parse: %v", err)
 		return nil, err
 	}
-
-	c, err := s.DB.GetClientByID(ctx, clientID)
-	if err != nil {
-		log.Errorf("GetClientByID: %v", err)
-		return nil, err
-	}
-
-	return clientInternalConvert(c), nil
+	return s.GetClientByUUID(ctx, clientID)
 }
 
 // CheckUsernamePassword implements the `authenticate` interface of the login
-func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) error {
+func (s *Storage) CheckUsernamePassword(username, passwordInput, reqid string) error {
 	log.Tracef("CheckUsernamePassword: username=%s", username)
 
-	request, err := s.DB.QueryAuthRequestByID(context.TODO(), id)
+	requid, err := uuid.Parse(reqid)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	request, err := s.GetAuthRequestByUUID(context.TODO(), requid)
 	if err != nil {
 		log.Error(err)
 		return fmt.Errorf("request not found")
@@ -176,7 +203,7 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) erro
 		request.UserID = us.ID
 		request.IsDone = true
 
-		err = s.DB.UpdateAuthRequest(context.Background(), request)
+		err = s.UpdateAuthRequest(context.Background(), request)
 		if err != nil {
 			log.Errorf("UpdateAuthRequest: %v", err)
 			return err
@@ -186,20 +213,6 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, id string) erro
 
 	return fmt.Errorf("username or password wrong")
 }
-
-/*
-func (s *Storage) CheckUsernamePasswordSimple(username, password string) error {
-	log.Tracef("CheckUsernamePasswordSimple: username=%s", username)
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	user := s.userStore.GetUserByUsername(username)
-	if user != nil && user.Password == password {
-		return nil
-	}
-	return fmt.Errorf("username or password wrong")
-}
-*/
 
 // CreateAuthRequest implements the op.Storage interface
 // it will be called after parsing and validation of the authentication request
@@ -219,7 +232,7 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 	request := authRequestToInternal(authReq, userID)
 
 	log.Infof("request: %+v", request)
-	rid, err := s.DB.StoreAuthRequest(context.TODO(), request)
+	rid, err := s.StoreAuthRequest(context.TODO(), request)
 	if err != nil {
 		log.Errorf("StoreAuthRequest: %v", err)
 		return nil, err
@@ -232,7 +245,12 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 // AuthRequestByID implements the op.Storage interface
 // it will be called after the Login UI redirects back to the OIDC endpoint
 func (s *Storage) AuthRequestByID(ctx context.Context, id string) (op.AuthRequest, error) {
-	request, err := s.DB.QueryAuthRequestByID(context.Background(), id)
+	reqid, err := uuid.Parse(id)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	request, err := s.GetAuthRequestByUUID(ctx, reqid)
 	if err != nil {
 		log.Error(err)
 		return nil, fmt.Errorf("request not found")
@@ -276,7 +294,13 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	err := s.DB.DeleteAuthRequest(ctx, id)
+	reqid, err := uuid.Parse(id)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = s.DeleteAuthRequestByUUID(ctx, reqid)
 	if err != nil {
 		log.Error(err)
 		return err
@@ -296,7 +320,7 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 func (s *Storage) CreateAccessToken(ctx context.Context, request op.TokenRequest) (string, time.Time, error) {
 	var applicationID string
 	switch req := request.(type) {
-	case *m.AuthRequest:
+	case *AuthRequest:
 		applicationID = req.GetClientID()
 	case op.TokenExchangeRequest:
 		applicationID = req.GetClientID()
@@ -578,8 +602,8 @@ func (s *Storage) GetPrivateClaimsFromScopes(ctx context.Context, userID, client
 func (s *Storage) getPrivateClaimsFromScopes(ctx context.Context, userID, clientID string, scopes []string) (claims map[string]interface{}, err error) {
 	for _, scope := range scopes {
 		switch scope {
-		case m.CustomScope:
-			claims = appendClaim(claims, m.CustomClaim, customClaim(clientID))
+		case CustomScope:
+			claims = appendClaim(claims, CustomClaim, customClaim(clientID))
 		}
 	}
 	return claims, nil
@@ -706,9 +730,9 @@ func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, user
 		case oidc.ScopePhone:
 			userInfo.PhoneNumber = user.Phone
 			userInfo.PhoneNumberVerified = user.PhoneVerified
-		case m.CustomScope:
+		case CustomScope:
 			// you can also have a custom scope and assert public or custom claims based on that
-			userInfo.AppendClaims(m.CustomClaim, customClaim(clientID))
+			userInfo.AppendClaims(CustomClaim, customClaim(clientID))
 		}
 	}
 	return nil
@@ -737,8 +761,8 @@ func (s *Storage) ValidateTokenExchangeRequest(ctx context.Context, request op.T
 			continue
 		}
 
-		if strings.HasPrefix(scope, m.CustomScopeImpersonatePrefix) {
-			subject := strings.TrimPrefix(scope, m.CustomScopeImpersonatePrefix)
+		if strings.HasPrefix(scope, CustomScopeImpersonatePrefix) {
+			subject := strings.TrimPrefix(scope, CustomScopeImpersonatePrefix)
 			request.SetSubject(subject)
 		}
 
@@ -791,7 +815,7 @@ func (s *Storage) SetUserinfoFromTokenExchangeRequest(ctx context.Context, useri
 func (s *Storage) getTokenExchangeClaims(ctx context.Context, request op.TokenExchangeRequest) (claims map[string]interface{}) {
 	for _, scope := range request.GetScopes() {
 		switch {
-		case strings.HasPrefix(scope, m.CustomScopeImpersonatePrefix) && request.GetExchangeActor() == "":
+		case strings.HasPrefix(scope, CustomScopeImpersonatePrefix) && request.GetExchangeActor() == "":
 			// Set actor subject claim for impersonation flow
 			claims = appendClaim(claims, "act", map[string]interface{}{
 				"sub": request.GetExchangeSubject(),
@@ -811,7 +835,7 @@ func (s *Storage) getTokenExchangeClaims(ctx context.Context, request op.TokenEx
 
 // getInfoFromRequest returns the clientID, authTime and amr depending on the op.TokenRequest type / implementation
 func getInfoFromRequest(req op.TokenRequest) (clientID string, authTime time.Time, amr []string) {
-	authReq, ok := req.(*m.AuthRequest) // Code Flow (with scope offline_access)
+	authReq, ok := req.(*AuthRequest) // Code Flow (with scope offline_access)
 	if ok {
 		return authReq.GetClientID(), authReq.AuthTime, authReq.GetAMR()
 	}
@@ -923,17 +947,33 @@ func (s *Storage) DenyDeviceAuthorization(ctx context.Context, userCode string) 
 
 // AuthRequestDone is used by testing and is not required to implement op.Storage
 func (s *Storage) AuthRequestDone(id string) error {
-	req, err := s.DB.QueryAuthRequestByID(context.Background(), id)
-	if err != nil {
-		log.Error(err)
-		return errors.New("request not found")
-	}
-	req.IsDone = true
-	err = s.DB.UpdateAuthRequest(context.TODO(), req)
+	reqid, err := uuid.Parse(id)
 	if err != nil {
 		log.Error(err)
 		return err
 	}
+
+	ctx := context.TODO()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	req, err := s.TXGetAuthRequestByUUID(ctx, tx, reqid)
+	if err != nil {
+		_ = tx.Rollback()
+		log.Error(err)
+		return errors.New("request not found")
+	}
+	req.IsDone = true
+	err = s.TXUpdateAuthRequest(context.TODO(), tx, req)
+	if err != nil {
+		_ = tx.Rollback()
+		log.Error(err)
+		return err
+	}
+	_ = tx.Commit()
 	return nil
 }
 

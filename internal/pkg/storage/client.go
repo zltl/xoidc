@@ -1,14 +1,16 @@
 package storage
 
 import (
+	"context"
 	"log"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"github.com/sanyokbig/pqinterval"
+	"github.com/sirupsen/logrus"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
-	"github.com/zltl/xoidc/internal/pkg/db"
-	"github.com/zltl/xoidc/pkg/m"
 )
 
 var (
@@ -17,6 +19,64 @@ var (
 		return "/login/username?authRequestID=" + id
 	}
 )
+
+func (s *Storage) GetClientByUUID(ctx context.Context, clientID uuid.UUID) (*Client, error) {
+	stmt := `
+		SELECT
+			id,
+			secret,
+			redirect_uris,
+			application_type,
+			auth_method,
+			response_types,
+			grant_types,
+			access_token_type,
+			dev_mode,
+			id_token_user_info_claims_assertion,
+			clock_skew,
+			post_logout_redirect_uri_globs,
+			redirect_uri_globs,
+			user_namespace_id
+		FROM
+			client
+		WHERE
+			id = $1
+	`
+	c := &Client{}
+	var interval pqinterval.Interval
+	err := s.db.QueryRowContext(ctx, stmt, clientID).Scan(
+		&c.id,
+		&c.secret,
+		pq.Array(&c.redirectURIs),
+		&c.applicationType,
+		&c.authMethod,
+		pq.Array(&c.responseTypes),
+		pq.Array(&c.grantTypes),
+		&c.accessTokenType,
+		&c.devMode,
+		&c.idTokenUserinfoClaimsAssertion,
+		&interval,
+		pq.Array(&c.postLogoutRedirectURIGlobs),
+		pq.Array(&c.redirectURIGlobs),
+		&c.userNamespaceID,
+	)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	dura, err := interval.Duration()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	c.clockSkew = dura
+
+	c.loginURL = defaultLoginURL
+
+	return c, err
+}
 
 // Client represents the storage model of an OAuth/OIDC client
 // this could also be your database model
@@ -36,63 +96,6 @@ type Client struct {
 	postLogoutRedirectURIGlobs     []string
 	redirectURIGlobs               []string
 	userNamespaceID                uuid.UUID
-}
-
-func clientInternalConvert(c *db.Client) *Client {
-	responseType := make([]oidc.ResponseType, len(c.ResponseTypes))
-	for i, rt := range c.ResponseTypes {
-		responseType[i] = oidc.ResponseType(rt)
-	}
-	grantTypes := make([]oidc.GrantType, len(c.GrantTypes))
-	for i, gt := range c.GrantTypes {
-		grantTypes[i] = oidc.GrantType(gt)
-	}
-
-	return &Client{
-		id:                             c.ID,
-		secret:                         c.Secret,
-		redirectURIs:                   c.RedirectURIs,
-		applicationType:                op.ApplicationType(c.ApplicationType),
-		authMethod:                     oidc.AuthMethod(c.AuthMethod),
-		loginURL:                       defaultLoginURL,
-		responseTypes:                  responseType,
-		grantTypes:                     grantTypes,
-		accessTokenType:                op.AccessTokenType(c.AccessTokenType),
-		devMode:                        c.DevMode,
-		idTokenUserinfoClaimsAssertion: false,
-		clockSkew:                      c.ClockSkew,
-		postLogoutRedirectURIGlobs:     c.PostLogoutRedirectURIGlobs,
-		redirectURIGlobs:               c.RedirectURIGlobs,
-		userNamespaceID:                c.UserNamespaceID,
-	}
-}
-
-func clientConvertInternal(c *Client) *db.Client {
-	grantTypes := make([]string, len(c.grantTypes))
-	for i, gt := range c.grantTypes {
-		grantTypes[i] = string(gt)
-	}
-	responseTypes := make([]string, len(c.responseTypes))
-	for i, rt := range c.responseTypes {
-		responseTypes[i] = string(rt)
-	}
-
-	return &db.Client{
-		ID:                             c.id,
-		Secret:                         c.secret,
-		RedirectURIs:                   c.redirectURIs,
-		ApplicationType:                int(c.applicationType),
-		AuthMethod:                     string(c.authMethod),
-		ResponseTypes:                  responseTypes,
-		GrantTypes:                     grantTypes,
-		AccessTokenType:                int(c.accessTokenType),
-		DevMode:                        c.devMode,
-		IDTokenUserInfoClaimsAssertion: c.idTokenUserinfoClaimsAssertion,
-		ClockSkew:                      c.clockSkew,
-		PostLogoutRedirectURIGlobs:     c.postLogoutRedirectURIGlobs,
-		RedirectURIGlobs:               c.redirectURIGlobs,
-		UserNamespaceID:                c.userNamespaceID,
-	}
 }
 
 // GetID must return the client_id
@@ -169,7 +172,7 @@ func (c *Client) RestrictAdditionalAccessTokenScopes() func(scopes []string) []s
 // IsScopeAllowed enables Client specific custom scopes validation
 // in this example we allow the CustomScope for all clients
 func (c *Client) IsScopeAllowed(scope string) bool {
-	return scope == m.CustomScope
+	return scope == CustomScope
 }
 
 // IDTokenUserinfoClaimsAssertion allows specifying if claims of scope profile, email, phone and address are asserted into the id_token

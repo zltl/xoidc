@@ -4,12 +4,10 @@ go 1.21
 
 require (
 	github.com/alexedwards/argon2id v1.0.0
-	github.com/bwmarrin/snowflake v0.3.0
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-jet/jet/v2 v2.10.1
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/google/uuid v1.4.0
-	github.com/gorilla/securecookie v1.1.2
 	github.com/lib/pq v1.10.9
 	github.com/sanyokbig/pqinterval v1.1.2
 	github.com/simukti/sqldb-logger v0.0.0-20230108155151-646c1a075551
@@ -26,6 +24,7 @@ require (
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
 	github.com/muhlemmer/httpforwarded v0.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
