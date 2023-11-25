@@ -35,8 +35,7 @@ func main() {
 	// the OpenIDProvider interface needs a Storage interface handling various checks and state manipulations
 	// this might be the layer for accessing your database
 	// in this example it will be handled in-memory
-	ustore := storage.NewUserStore(issuer)
-	storage := storage.NewStorage(ustore, mdb)
+	storage := storage.NewStorage(nil, mdb)
 
 	logger := slog.New(
 		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{

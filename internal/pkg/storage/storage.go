@@ -39,10 +39,10 @@ var serviceKey1 = &rsa.PublicKey{
 // typically you would implement this as a layer on top of your database
 // for simplicity this example keeps everything in-memory
 type Storage struct {
-	lock          sync.Mutex
-	codes         map[string]string
-	tokens        map[string]*Token
-	userStore     UserStore
+	lock   sync.Mutex
+	codes  map[string]string
+	tokens map[string]*Token
+	// userStore     UserStore
 	services      map[string]Service
 	refreshTokens map[string]*RefreshToken
 	signingKey    signingKey
@@ -121,18 +121,16 @@ func (s *Storage) Open() error {
 }
 
 // TODO: remove it
-func NewStorage(u UserStore, d *db.Store) *Storage {
+func NewStorage(u any, d *db.Store) *Storage {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
-	u.(*userStore).DB = d
 	return &Storage{
 		DB: d,
 		// authRequests:  make(map[string]*m.AuthRequest),
 		codes:         make(map[string]string),
 		tokens:        make(map[string]*Token),
 		refreshTokens: make(map[string]*RefreshToken),
-		userStore:     u,
 		services: map[string]Service{
-			u.ExampleClientID(): {
+			"service": {
 				keys: map[string]*rsa.PublicKey{
 					"key1": serviceKey1,
 				},
@@ -188,7 +186,7 @@ func (s *Storage) CheckUsernamePassword(username, passwordInput, reqid string) e
 	clientIDStr := request.GetClientID()
 	clientID := uuid.MustParse(clientIDStr)
 
-	us, err := s.DB.GetUserByUsername(context.TODO(), username, clientID)
+	us, err := s.GetUserByUsername(context.TODO(), username, clientID)
 	if err != nil {
 		log.Errorf("QueryPassword: %v", err)
 		return err
@@ -710,14 +708,21 @@ func (s *Storage) accessToken(applicationID, refreshTokenID, subject string, aud
 func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, userID, clientID string, scopes []string) (err error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	user := s.userStore.GetUserByID(userID)
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return err
+	}
+	user, err := s.GetUserByID(ctx, uid)
+	if err != nil {
+		return err
+	}
 	if user == nil {
 		return fmt.Errorf("user not found")
 	}
 	for _, scope := range scopes {
 		switch scope {
 		case oidc.ScopeOpenID:
-			userInfo.Subject = user.ID
+			userInfo.Subject = user.ID.String()
 		case oidc.ScopeEmail:
 			userInfo.Email = user.Email
 			userInfo.EmailVerified = oidc.Bool(user.EmailVerified)
@@ -751,7 +756,16 @@ func (s *Storage) ValidateTokenExchangeRequest(ctx context.Context, request op.T
 	}
 
 	// Check impersonation permissions
-	if request.GetExchangeActor() == "" && !s.userStore.GetUserByID(request.GetExchangeSubject()).IsAdmin {
+	uid, err := uuid.Parse(request.GetExchangeSubject())
+	if err != nil {
+		return err
+	}
+	user, err := s.GetUserByID(ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	if request.GetExchangeActor() == "" && !user.IsAdmin {
 		return errors.New("user doesn't have impersonation permission")
 	}
 
