@@ -14,7 +14,6 @@ import (
 
 func (s *Storage) QueryPassword(ctx context.Context, name string, namespace uuid.UUID) (string, error) {
 	tb := table.User
-	_ = namespace // TOPDO: namespace
 	stmt := tb.SELECT(
 		tb.Password,
 	).WHERE(
