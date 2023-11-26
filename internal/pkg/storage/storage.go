@@ -232,13 +232,8 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, authReq *oidc.AuthReque
 
 // AuthRequestByID implements the op.Storage interface
 // it will be called after the Login UI redirects back to the OIDC endpoint
-func (s *Storage) AuthRequestByID(ctx context.Context, id string) (op.AuthRequest, error) {
-	reqid, err := uuid.Parse(id)
-	if err != nil {
-		log.Error(err)
-		return nil, err
-	}
-	request, err := s.GetAuthRequestByUUID(ctx, reqid)
+func (s *Storage) AuthRequestByUID(ctx context.Context, id uuid.UUID) (op.AuthRequest, error) {
+	request, err := s.GetAuthRequestByUUID(ctx, id)
 	if err != nil {
 		log.Error(err)
 		return nil, fmt.Errorf("request not found")
@@ -246,20 +241,30 @@ func (s *Storage) AuthRequestByID(ctx context.Context, id string) (op.AuthReques
 	return request, nil
 }
 
+func (s *Storage) AuthRequestByID(ctx context.Context, id string) (op.AuthRequest, error) {
+	rid, err := uuid.Parse(id)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	return s.AuthRequestByUID(ctx, rid)
+}
+
 // AuthRequestByCode implements the op.Storage interface
 // it will be called after parsing and validation of the token request (in an authorization code flow)
 func (s *Storage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRequest, error) {
 	// for this example we read the id by code and then get the request by id
-	requestID, ok := func() (string, bool) {
+	requestID, err := func() (uuid.UUID, error) {
 		s.lock.Lock()
 		defer s.lock.Unlock()
-		requestID, ok := s.codes[code]
-		return requestID, ok
+		rid, err := s.CodeToRequestID(ctx, code)
+
+		return rid, err
 	}()
-	if !ok {
+	if err != nil {
 		return nil, fmt.Errorf("code invalid or expired")
 	}
-	return s.AuthRequestByID(ctx, requestID)
+	return s.AuthRequestByUID(ctx, requestID)
 }
 
 // SaveAuthCode implements the op.Storage interface
@@ -267,10 +272,14 @@ func (s *Storage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRe
 // (in an authorization code flow)
 func (s *Storage) SaveAuthCode(ctx context.Context, id string, code string) error {
 	// for this example we'll just save the authRequestID to the code
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.codes[code] = id
-	return nil
+	rid, err := uuid.Parse(id)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = s.StoreCodeRequestID(ctx, code, rid)
+	return err
 }
 
 // DeleteAuthRequest implements the op.Storage interface
