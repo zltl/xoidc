@@ -18,7 +18,6 @@ import (
 	sqldblogger "github.com/simukti/sqldb-logger"
 	"github.com/simukti/sqldb-logger/logadapter/logrusadapter"
 	log "github.com/sirupsen/logrus"
-	"github.com/zltl/xoidc/internal/pkg/db"
 	"github.com/zltl/xoidc/pkg/password"
 
 	"github.com/zitadel/oidc/v3/pkg/oidc"
@@ -57,8 +56,6 @@ type Storage struct {
 	PGDBName   string
 
 	db *sql.DB
-
-	DB *db.Store
 }
 
 type signingKey struct {
@@ -117,43 +114,36 @@ func (s *Storage) Open() error {
 		return err
 	}
 
-	return nil
-}
-
-// TODO: remove it
-func NewStorage(u any, d *db.Store) *Storage {
-	key, _ := rsa.GenerateKey(rand.Reader, 2048)
-	return &Storage{
-		DB: d,
-		// authRequests:  make(map[string]*m.AuthRequest),
-		codes:         make(map[string]string),
-		tokens:        make(map[string]*Token),
-		refreshTokens: make(map[string]*RefreshToken),
-		services: map[string]Service{
-			"service": {
-				keys: map[string]*rsa.PublicKey{
-					"key1": serviceKey1,
-				},
-			},
-		},
-		signingKey: signingKey{
-			id:        uuid.NewString(),
-			algorithm: jose.RS256,
-			key:       key,
-		},
-		deviceCodes: make(map[string]deviceAuthorizationEntry),
-		userCodes:   make(map[string]string),
-		serviceUsers: map[string]*Client{
-			"sid1": {
-				// id:     "sid1",
-				secret: "verysecret",
-				grantTypes: []oidc.GrantType{
-					oidc.GrantTypeClientCredentials,
-				},
-				accessTokenType: op.AccessTokenTypeBearer,
+	s.codes = make(map[string]string)
+	s.tokens = make(map[string]*Token)
+	s.refreshTokens = make(map[string]*RefreshToken)
+	s.services = map[string]Service{
+		"service": {
+			keys: map[string]*rsa.PublicKey{
+				"key1": serviceKey1,
 			},
 		},
 	}
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	s.signingKey = signingKey{
+		id:        uuid.NewString(),
+		algorithm: jose.RS256,
+		key:       key,
+	}
+	s.deviceCodes = make(map[string]deviceAuthorizationEntry)
+	s.userCodes = make(map[string]string)
+	s.serviceUsers = map[string]*Client{
+		"sid1": {
+			// id:     "sid1",
+			secret: "verysecret",
+			grantTypes: []oidc.GrantType{
+				oidc.GrantTypeClientCredentials,
+			},
+			accessTokenType: op.AccessTokenTypeBearer,
+		},
+	}
+
+	return nil
 }
 
 func (s *Storage) GetClient(ctx context.Context, id string) (*Client, error) {

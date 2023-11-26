@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"time"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -48,11 +49,11 @@ func (s *Storage) GetClientByUUID(ctx context.Context, clientID uuid.UUID) (*Cli
 		&c.id,
 		&c.secret,
 		pq.Array(&c.redirectURIs),
-		&c.applicationType,
+		(*int)(unsafe.Pointer(&c.applicationType)),
 		&c.authMethod,
-		pq.Array(&c.responseTypes),
-		pq.Array(&c.grantTypes),
-		&c.accessTokenType,
+		pq.Array((*[]string)(unsafe.Pointer(&c.responseTypes))),
+		pq.Array((*[]string)(unsafe.Pointer(&c.grantTypes))),
+		(*int)(unsafe.Pointer(&c.accessTokenType)),
 		&c.devMode,
 		&c.idTokenUserinfoClaimsAssertion,
 		&interval,

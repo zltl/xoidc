@@ -6,7 +6,6 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/zltl/xoidc/internal/pkg/db"
 	"github.com/zltl/xoidc/internal/pkg/exampleop"
 	"github.com/zltl/xoidc/internal/pkg/storage"
 	"golang.org/x/exp/slog"
@@ -26,16 +25,21 @@ func main() {
 
 	log.SetLevel(log.TraceLevel)
 
-	mdb := db.New("localhost", 5432, "postgres", "postgres", "xoidc")
-	err := mdb.Open()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// the OpenIDProvider interface needs a Storage interface handling various checks and state manipulations
 	// this might be the layer for accessing your database
 	// in this example it will be handled in-memory
-	storage := storage.NewStorage(nil, mdb)
+	storage := &storage.Storage{
+		PGHost:     "localhost",
+		PGPort:     5432,
+		PGUsername: "postgres",
+		PGPassword: "postgres",
+		PGDBName:   "xoidc",
+	}
+
+	err := storage.Open()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	logger := slog.New(
 		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
