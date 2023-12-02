@@ -10,6 +10,8 @@ import (
 	"github.com/zltl/xoidc/gen/xoidc/public/table"
 )
 
+// TODO: expire cdoe
+
 func (s *Storage) CodeToRequestID(ctx context.Context, code string) (uuid.UUID, error) {
 	tb := table.CodeRequestID
 	stmt := tb.SELECT(
@@ -37,6 +39,38 @@ func (s *Storage) StoreCodeRequestID(ctx context.Context, code string, requestID
 	).VALUES(
 		postgres.String(code),
 		postgres.UUID(requestID),
+	)
+
+	cmd, args := stmt.Sql()
+	_, err := s.db.ExecContext(ctx, cmd, args...)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *Storage) DeleteCodeRequestIDByCode(ctx context.Context, code string) error {
+	tb := table.CodeRequestID
+	stmt := tb.DELETE().WHERE(
+		tb.Code.EQ(postgres.String(code)),
+	)
+
+	cmd, args := stmt.Sql()
+	_, err := s.db.ExecContext(ctx, cmd, args...)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *Storage) DeleteCodeRequestIDByRequestID(ctx context.Context, requestID uuid.UUID) error {
+	tb := table.CodeRequestID
+	stmt := tb.DELETE().WHERE(
+		tb.RequestID.EQ(postgres.UUID(requestID)),
 	)
 
 	cmd, args := stmt.Sql()

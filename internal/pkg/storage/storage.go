@@ -39,7 +39,6 @@ var serviceKey1 = &rsa.PublicKey{
 // for simplicity this example keeps everything in-memory
 type Storage struct {
 	lock   sync.Mutex
-	codes  map[string]string
 	tokens map[string]*Token
 	// userStore     UserStore
 	services      map[string]Service
@@ -114,7 +113,6 @@ func (s *Storage) Open() error {
 		return err
 	}
 
-	s.codes = make(map[string]string)
 	s.tokens = make(map[string]*Token)
 	s.refreshTokens = make(map[string]*RefreshToken)
 	s.services = map[string]Service{
@@ -303,12 +301,11 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 		return err
 	}
 
-	for code, requestID := range s.codes {
-		if id == requestID {
-			delete(s.codes, code)
-			return nil
-		}
+	err = s.DeleteCodeRequestIDByRequestID(ctx, reqid)
+	if err != nil {
+		log.Error(err)
 	}
+
 	return nil
 }
 
