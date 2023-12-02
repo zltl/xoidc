@@ -17,7 +17,6 @@ import (
 	"github.com/lib/pq"
 	sqldblogger "github.com/simukti/sqldb-logger"
 	"github.com/simukti/sqldb-logger/logadapter/logrusadapter"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/pkg/password"
 
@@ -399,36 +398,36 @@ func (s *Storage) TokenRequestByRefreshToken(ctx context.Context, refreshToken s
 func (s *Storage) TerminateSession(ctx context.Context, userID string, clientID string) error {
 	clientid, err := uuid.Parse(clientID)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return err
 	}
 	userid, err := uuid.Parse(userID)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return err
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return err
 	}
 
 	err = s.DeleteRefreshTokenByApplicationAndSubject(ctx, tx, clientid, userid)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		_ = tx.Rollback()
 		return err
 	}
 	err = s.DeleteTokenByApplicationAndSubject(ctx, tx, clientid, userid)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		_ = tx.Rollback()
 		return err
 	}
 	err = tx.Commit()
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return err
 	}
 	return nil
@@ -450,13 +449,13 @@ func (s *Storage) RevokeToken(ctx context.Context, tokenIDOrToken string, userID
 	// a single token was requested to be removed
 	tokenid, err := uuid.Parse(tokenIDOrToken)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return oidc.ErrServerError().WithDescription("could not parse token id")
 	}
 
 	clientid, err := uuid.Parse(clientID)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return oidc.ErrServerError().WithDescription("could not parse client id")
 	}
 
