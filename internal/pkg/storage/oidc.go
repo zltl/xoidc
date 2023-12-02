@@ -67,7 +67,7 @@ func (r *RefreshTokenRequest) GetAuthTime() time.Time {
 }
 
 func (r *RefreshTokenRequest) GetClientID() string {
-	return r.ApplicationID
+	return r.ApplicationID.String()
 }
 
 func (r *RefreshTokenRequest) GetScopes() []string {
@@ -75,7 +75,7 @@ func (r *RefreshTokenRequest) GetScopes() []string {
 }
 
 func (r *RefreshTokenRequest) GetSubject() string {
-	return r.UserID
+	return r.UserID.String()
 }
 
 func (r *RefreshTokenRequest) SetCurrentScopes(scopes []string) {

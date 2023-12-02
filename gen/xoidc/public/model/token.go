@@ -8,15 +8,16 @@
 package model
 
 import (
+	"github.com/google/uuid"
 	"time"
 )
 
 type Token struct {
 	ID             string `sql:"primary_key"`
-	ApplicationID  string
-	Subject        string
-	RefreshTokenID string
 	Audience       string
 	Expiration     time.Time
 	Scopes         string
+	ApplicationID  uuid.UUID
+	Subject        uuid.UUID
+	RefreshTokenID uuid.UUID
 }

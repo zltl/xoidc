@@ -6,29 +6,30 @@ import (
 
 	"github.com/go-jet/jet/v2/postgres"
 	"github.com/go-jet/jet/v2/qrm"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"github.com/zltl/xoidc/gen/xoidc/public/table"
 )
 
 type Token struct {
-	ID             string
-	ApplicationID  string
-	Subject        string
-	RefreshTokenID string
+	ID             uuid.UUID
+	ApplicationID  uuid.UUID
+	Subject        uuid.UUID
+	RefreshTokenID uuid.UUID
 	Audience       []string
 	Expiration     time.Time
 	Scopes         []string
 }
 
 type RefreshToken struct {
-	ID            string
+	ID            uuid.UUID
 	Token         string
 	AuthTime      time.Time
 	AMR           []string
 	Audience      []string
-	UserID        string
-	ApplicationID string
+	UserID        uuid.UUID
+	ApplicationID uuid.UUID
 	Expiration    time.Time
 	Scopes        []string
 }
@@ -61,7 +62,7 @@ func (s *Storage) SaveToken(ctx context.Context, token *Token) error {
 	return nil
 }
 
-func (s *Storage) StoreRefreshToken(ctx context.Context, reftok RefreshToken) error {
+func (s *Storage) StoreRefreshToken(ctx context.Context, reftok *RefreshToken) error {
 	tb := table.RefreshToken
 	stmt := tb.INSERT(
 		tb.ID,
@@ -93,7 +94,7 @@ func (s *Storage) StoreRefreshToken(ctx context.Context, reftok RefreshToken) er
 	return nil
 }
 
-func (s *Storage) QueryToken(ctx context.Context, id string) (Token, error) {
+func (s *Storage) QueryToken(ctx context.Context, id uuid.UUID) (Token, error) {
 	cmd := `
 		SELECT
 			id,
@@ -123,10 +124,10 @@ func (s *Storage) QueryToken(ctx context.Context, id string) (Token, error) {
 	return token, nil
 }
 
-func (s *Storage) DeleteTokenByID(ctx context.Context, id string) error {
+func (s *Storage) DeleteTokenByID(ctx context.Context, id uuid.UUID) error {
 	tb := table.Token
 	stmt := tb.DELETE().WHERE(
-		tb.ID.EQ(postgres.String(id)),
+		tb.ID.EQ(postgres.UUID(id)),
 	)
 	cmd, args := stmt.Sql()
 	_, err := s.db.ExecContext(ctx, cmd, args...)
@@ -137,10 +138,10 @@ func (s *Storage) DeleteTokenByID(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Storage) DeleteTokenByRefreshTokenID(ctx context.Context, id string) error {
+func (s *Storage) DeleteTokenByRefreshTokenID(ctx context.Context, id uuid.UUID) error {
 	tb := table.Token
 	stmt := tb.DELETE().WHERE(
-		tb.RefreshTokenID.EQ(postgres.String(id)),
+		tb.RefreshTokenID.EQ(postgres.UUID(id)),
 	)
 	cmd, args := stmt.Sql()
 	_, err := s.db.ExecContext(ctx, cmd, args...)
@@ -151,8 +152,10 @@ func (s *Storage) DeleteTokenByRefreshTokenID(ctx context.Context, id string) er
 	return nil
 }
 
-func (s *Storage) DeleteRefreshTokenByApplicationAndSubject(ctx context.Context, tx qrm.DB,
-	applicationID string, subject string) error {
+func (s *Storage) DeleteRefreshTokenByApplicationAndSubject(
+	ctx context.Context,
+	tx qrm.DB,
+	applicationID, subject uuid.UUID) error {
 	cmd := `
 	delete from refresh_token
 	WHERE refresh_token_id in (
@@ -168,8 +171,11 @@ func (s *Storage) DeleteRefreshTokenByApplicationAndSubject(ctx context.Context,
 	return nil
 }
 
-func (s *Storage) DeleteTokenByApplicationAndSubject(ctx context.Context, tx qrm.DB,
-	applicationID, subject string) error {
+func (s *Storage) DeleteTokenByApplicationAndSubject(
+	ctx context.Context,
+	tx qrm.DB,
+	applicationID,
+	subject uuid.UUID) error {
 	cmd := `
 		DELETE FROM token
 		WHERE application_id=$1
@@ -183,7 +189,7 @@ func (s *Storage) DeleteTokenByApplicationAndSubject(ctx context.Context, tx qrm
 	return nil
 }
 
-func (s *Storage) QueryRefreshToken(ctx context.Context, id string) (RefreshToken, error) {
+func (s *Storage) QueryRefreshToken(ctx context.Context, id uuid.UUID) (RefreshToken, error) {
 	cmd := `
 		SELECT
 			id,
@@ -217,7 +223,7 @@ func (s *Storage) QueryRefreshToken(ctx context.Context, id string) (RefreshToke
 	return token, nil
 }
 
-func (s *Storage) DeleteRefreshTokenByID(ctx context.Context, id string) error {
+func (s *Storage) DeleteRefreshTokenByID(ctx context.Context, id uuid.UUID) error {
 	cmd := `
 		DELETE FROM refresh_token
 		WHERE id=$1

@@ -18,12 +18,12 @@ type tokenTable struct {
 
 	// Columns
 	ID             postgres.ColumnString
-	ApplicationID  postgres.ColumnString
-	Subject        postgres.ColumnString
-	RefreshTokenID postgres.ColumnString
 	Audience       postgres.ColumnString
 	Expiration     postgres.ColumnTimestamp
 	Scopes         postgres.ColumnString
+	ApplicationID  postgres.ColumnString
+	Subject        postgres.ColumnString
+	RefreshTokenID postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -65,14 +65,14 @@ func newTokenTable(schemaName, tableName, alias string) *TokenTable {
 func newTokenTableImpl(schemaName, tableName, alias string) tokenTable {
 	var (
 		IDColumn             = postgres.StringColumn("id")
-		ApplicationIDColumn  = postgres.StringColumn("application_id")
-		SubjectColumn        = postgres.StringColumn("subject")
-		RefreshTokenIDColumn = postgres.StringColumn("refresh_token_id")
 		AudienceColumn       = postgres.StringColumn("audience")
 		ExpirationColumn     = postgres.TimestampColumn("expiration")
 		ScopesColumn         = postgres.StringColumn("scopes")
-		allColumns           = postgres.ColumnList{IDColumn, ApplicationIDColumn, SubjectColumn, RefreshTokenIDColumn, AudienceColumn, ExpirationColumn, ScopesColumn}
-		mutableColumns       = postgres.ColumnList{ApplicationIDColumn, SubjectColumn, RefreshTokenIDColumn, AudienceColumn, ExpirationColumn, ScopesColumn}
+		ApplicationIDColumn  = postgres.StringColumn("application_id")
+		SubjectColumn        = postgres.StringColumn("subject")
+		RefreshTokenIDColumn = postgres.StringColumn("refresh_token_id")
+		allColumns           = postgres.ColumnList{IDColumn, AudienceColumn, ExpirationColumn, ScopesColumn, ApplicationIDColumn, SubjectColumn, RefreshTokenIDColumn}
+		mutableColumns       = postgres.ColumnList{AudienceColumn, ExpirationColumn, ScopesColumn, ApplicationIDColumn, SubjectColumn, RefreshTokenIDColumn}
 	)
 
 	return tokenTable{
@@ -80,12 +80,12 @@ func newTokenTableImpl(schemaName, tableName, alias string) tokenTable {
 
 		//Columns
 		ID:             IDColumn,
-		ApplicationID:  ApplicationIDColumn,
-		Subject:        SubjectColumn,
-		RefreshTokenID: RefreshTokenIDColumn,
 		Audience:       AudienceColumn,
 		Expiration:     ExpirationColumn,
 		Scopes:         ScopesColumn,
+		ApplicationID:  ApplicationIDColumn,
+		Subject:        SubjectColumn,
+		RefreshTokenID: RefreshTokenIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

@@ -323,7 +323,7 @@ func (s *Storage) CreateAccessToken(ctx context.Context, request op.TokenRequest
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	return token.ID, token.Expiration, nil
+	return token.ID.String(), token.Expiration, nil
 }
 
 // CreateAccessAndRefreshTokens implements the op.Storage interface
@@ -348,7 +348,7 @@ func (s *Storage) CreateAccessAndRefreshTokens(ctx context.Context, request op.T
 		if err != nil {
 			return "", "", time.Time{}, err
 		}
-		return accessToken.ID, refreshToken, accessToken.Expiration, nil
+		return accessToken.ID.String(), refreshToken, accessToken.Expiration, nil
 	}
 
 	// if we get here, the currentRefreshToken was not empty, so the call is a refresh token request
@@ -361,7 +361,7 @@ func (s *Storage) CreateAccessAndRefreshTokens(ctx context.Context, request op.T
 	if err != nil {
 		return "", "", time.Time{}, err
 	}
-	return accessToken.ID, refreshToken, accessToken.Expiration, nil
+	return accessToken.ID.String(), refreshToken, accessToken.Expiration, nil
 }
 
 func (s *Storage) exchangeRefreshToken(ctx context.Context, request op.TokenExchangeRequest) (accessTokenID string, newRefreshToken string, expiration time.Time, err error) {
@@ -379,7 +379,7 @@ func (s *Storage) exchangeRefreshToken(ctx context.Context, request op.TokenExch
 		return "", "", time.Time{}, err
 	}
 
-	return accessToken.ID, refreshToken, accessToken.Expiration, nil
+	return accessToken.ID.String(), refreshToken, accessToken.Expiration, nil
 }
 
 // TokenRequestByRefreshToken implements the op.Storage interface
@@ -397,18 +397,30 @@ func (s *Storage) TokenRequestByRefreshToken(ctx context.Context, refreshToken s
 // TerminateSession implements the op.Storage interface
 // it will be called after the user signed out, therefore the access and refresh token of the user of this client must be removed
 func (s *Storage) TerminateSession(ctx context.Context, userID string, clientID string) error {
+	clientid, err := uuid.Parse(clientID)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	userid, err := uuid.Parse(userID)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		logrus.Error(err)
 		return err
 	}
-	err = s.DeleteRefreshTokenByApplicationAndSubject(ctx, tx, clientID, userID)
+
+	err = s.DeleteRefreshTokenByApplicationAndSubject(ctx, tx, clientid, userid)
 	if err != nil {
 		logrus.Error(err)
 		_ = tx.Rollback()
 		return err
 	}
-	err = s.DeleteTokenByApplicationAndSubject(ctx, tx, clientID, userID)
+	err = s.DeleteTokenByApplicationAndSubject(ctx, tx, clientid, userid)
 	if err != nil {
 		logrus.Error(err)
 		_ = tx.Rollback()
@@ -429,16 +441,28 @@ func (s *Storage) GetRefreshTokenInfo(ctx context.Context, clientID string, toke
 	if !ok {
 		return "", "", op.ErrInvalidRefreshToken
 	}
-	return refreshToken.UserID, refreshToken.ID, nil
+	return refreshToken.UserID.String(), refreshToken.ID.String(), nil
 }
 
 // RevokeToken implements the op.Storage interface
 // it will be called after parsing and validation of the token revocation request
 func (s *Storage) RevokeToken(ctx context.Context, tokenIDOrToken string, userID string, clientID string) *oidc.Error {
 	// a single token was requested to be removed
-	accessToken, err := s.QueryToken(ctx, tokenIDOrToken)
+	tokenid, err := uuid.Parse(tokenIDOrToken)
+	if err != nil {
+		logrus.Error(err)
+		return oidc.ErrServerError().WithDescription("could not parse token id")
+	}
+
+	clientid, err := uuid.Parse(clientID)
+	if err != nil {
+		logrus.Error(err)
+		return oidc.ErrServerError().WithDescription("could not parse client id")
+	}
+
+	accessToken, err := s.QueryToken(ctx, tokenid)
 	if err == nil {
-		if accessToken.ApplicationID != clientID {
+		if accessToken.ApplicationID != clientid {
 			return oidc.ErrInvalidClient().WithDescription("token was not issued for this client")
 		}
 		err = s.DeleteTokenByID(ctx, accessToken.ID)
@@ -447,13 +471,13 @@ func (s *Storage) RevokeToken(ctx context.Context, tokenIDOrToken string, userID
 		}
 		return nil
 	}
-	refreshToken, err := s.QueryRefreshToken(ctx, tokenIDOrToken)
+	refreshToken, err := s.QueryRefreshToken(ctx, tokenid)
 	if err != nil {
 		// if the token is neither an access nor a refresh token, just ignore it, the expected behaviour of
 		// being not valid (anymore) is achieved
 		return nil
 	}
-	if refreshToken.ApplicationID != clientID {
+	if refreshToken.ApplicationID != clientid {
 		return oidc.ErrInvalidClient().WithDescription("token was not issued for this client")
 	}
 	// if it is a refresh token, you will have to remove the access token as well
@@ -534,7 +558,11 @@ func (s *Storage) SetUserinfoFromRequest(ctx context.Context, userinfo *oidc.Use
 // SetUserinfoFromToken implements the op.Storage interface
 // it will be called for the userinfo endpoint, so we read the token and pass the information from that to the private function
 func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserInfo, tokenID, subject, origin string) error {
-	token, err := s.QueryToken(ctx, tokenID)
+	tokenid, err := uuid.Parse(tokenID)
+	if err != nil {
+		return err
+	}
+	token, err := s.QueryToken(ctx, tokenid)
 	if err != nil {
 		return fmt.Errorf("token is invalid or has expired")
 	}
@@ -551,13 +579,18 @@ func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserI
 	//		return err
 	//	}
 	//}
-	return s.setUserinfo(ctx, userinfo, token.Subject, token.ApplicationID, token.Scopes)
+	return s.setUserinfo(ctx, userinfo, token.Subject.String(), token.ApplicationID.String(), token.Scopes)
 }
 
 // SetIntrospectionFromToken implements the op.Storage interface
 // it will be called for the introspection endpoint, so we read the token and pass the information from that to the private function
 func (s *Storage) SetIntrospectionFromToken(ctx context.Context, introspection *oidc.IntrospectionResponse, tokenID, subject, clientID string) error {
-	token, err := s.QueryToken(ctx, tokenID)
+	tokenid, err := uuid.Parse(tokenID)
+	if err != nil {
+		return err
+	}
+
+	token, err := s.QueryToken(ctx, tokenid)
 	if err != nil {
 		return fmt.Errorf("token is invalid or has expired")
 	}
@@ -578,7 +611,7 @@ func (s *Storage) SetIntrospectionFromToken(ctx context.Context, introspection *
 			//...and also the requested scopes...
 			introspection.Scope = token.Scopes
 			//...and the client the token was issued to
-			introspection.ClientID = token.ApplicationID
+			introspection.ClientID = token.ApplicationID.String()
 			return nil
 		}
 	}
@@ -644,7 +677,7 @@ func (s *Storage) createRefreshToken(accessToken *Token, amr []string, authTime 
 	defer s.lock.Unlock()
 	token := &RefreshToken{
 		ID:            accessToken.RefreshTokenID,
-		Token:         accessToken.RefreshTokenID,
+		Token:         accessToken.RefreshTokenID.String(),
 		AuthTime:      authTime,
 		AMR:           amr,
 		ApplicationID: accessToken.ApplicationID,
@@ -653,35 +686,44 @@ func (s *Storage) createRefreshToken(accessToken *Token, amr []string, authTime 
 		Expiration:    time.Now().Add(5 * time.Hour),
 		Scopes:        accessToken.Scopes,
 	}
-	s.refreshTokens[token.ID] = token
+	s.StoreRefreshToken(context.TODO(), token)
 	return token.Token, nil
 }
 
 // renewRefreshToken checks the provided refresh_token and creates a new one based on the current
 func (s *Storage) renewRefreshToken(currentRefreshToken string) (string, string, error) {
-	refreshToken, err := s.QueryRefreshToken(context.TODO(), currentRefreshToken)
+	curtokid, err := uuid.Parse(currentRefreshToken)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid refresh token")
+	}
+
+	refreshToken, err := s.QueryRefreshToken(context.TODO(), curtokid)
 	if err != nil {
 		return "", "", fmt.Errorf("invalid refresh token")
 	}
 	// deletes the refresh token and all access tokens which were issued based on this refresh token
-	_ = s.DeleteRefreshTokenByID(context.TODO(), currentRefreshToken)
-	_ = s.DeleteTokenByRefreshTokenID(context.TODO(), currentRefreshToken)
+	_ = s.DeleteRefreshTokenByID(context.TODO(), curtokid)
+	_ = s.DeleteTokenByRefreshTokenID(context.TODO(), curtokid)
 	// creates a new refresh token based on the current one
-	token := uuid.NewString()
-	refreshToken.Token = token
+	token := uuid.New()
+	refreshToken.Token = token.String()
 	refreshToken.ID = token
 
-	s.StoreRefreshToken(context.TODO(), refreshToken)
-	return token, refreshToken.ID, nil
+	s.StoreRefreshToken(context.TODO(), &refreshToken)
+	return token.String(), refreshToken.ID.String(), nil
 }
 
 // accessToken will store an access_token in-memory based on the provided information
 func (s *Storage) accessToken(applicationID, refreshTokenID, subject string, audience, scopes []string) (*Token, error) {
+	apid, _ := uuid.Parse(applicationID)
+	refid, _ := uuid.Parse(refreshTokenID)
+	sub, _ := uuid.Parse(subject)
+
 	token := &Token{
-		ID:             uuid.NewString(),
-		ApplicationID:  applicationID,
-		RefreshTokenID: refreshTokenID,
-		Subject:        subject,
+		ID:             uuid.New(),
+		ApplicationID:  apid,
+		RefreshTokenID: refid,
+		Subject:        sub,
 		Audience:       audience,
 		Expiration:     time.Now().Add(5 * time.Minute),
 		Scopes:         scopes,
@@ -842,7 +884,7 @@ func getInfoFromRequest(req op.TokenRequest) (clientID string, authTime time.Tim
 	}
 	refreshReq, ok := req.(*RefreshTokenRequest) // Refresh Token Request
 	if ok {
-		return refreshReq.ApplicationID, refreshReq.AuthTime, refreshReq.AMR
+		return refreshReq.ApplicationID.String(), refreshReq.AuthTime, refreshReq.AMR
 	}
 	return "", time.Time{}, nil
 }
