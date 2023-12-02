@@ -13,5 +13,7 @@ func UseSchema(schema string) {
 	AuthRequest = AuthRequest.FromSchema(schema)
 	Client = Client.FromSchema(schema)
 	CodeRequestID = CodeRequestID.FromSchema(schema)
+	RefreshToken = RefreshToken.FromSchema(schema)
+	Token = Token.FromSchema(schema)
 	User = User.FromSchema(schema)
 }
