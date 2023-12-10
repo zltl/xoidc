@@ -1,5 +1,5 @@
 import { dir } from 'i18next'
-import { languages } from '../i18n/settings'
+import { languages } from '@/app/i18n/settings'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 const inter = Inter({ subsets: ['latin'] })

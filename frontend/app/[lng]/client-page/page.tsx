@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useTranslation } from '../../i18n/client'
-import { Footer } from '../components/Footer/client'
+import { useTranslation } from '@/app/i18n/client'
+import { Footer } from '@/app/[lng]/components/Footer/client'
 import { useState } from 'react'
 
 export default function Page({ params: { lng } }: { params: { lng: string } }) {

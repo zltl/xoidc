@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { useTranslation } from '../i18n'
+import { useTranslation } from '@/app/i18n'
 import { Footer } from './components/Footer'
 
 export default async function Page({ params: { lng } }: { params: { lng: string } }) {

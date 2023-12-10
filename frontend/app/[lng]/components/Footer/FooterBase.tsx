@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { Trans } from 'react-i18next/TransWithoutContext'
-import { languages } from '../../../i18n/settings'
-import { useRouter } from 'next/navigation'
+import { languages } from '@/app/i18n/settings'
 
 export const FooterBase = ({ t, lng }: { t: any, lng: string }) => {
 
