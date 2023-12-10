@@ -18,9 +18,9 @@ export default async function Page({
       this is main
       <div>
         <h1>{t("title")}</h1>
-        <Link href={`/${lng}/second-page`}>{t("to-second-page")}</Link>
+        <Link className='font-medium text-blue-600 dark:text-blue-500 hover:underline' href={`/${lng}/second-page`}>{t("to-second-page")}</Link>
         <br />
-        <Link href={`/${lng}/client-page`}>{t("to-client-page")}</Link>
+        <Link className='font-medium text-blue-600 dark:text-blue-500 hover:underline' href={`/${lng}/client-page`}>{t("to-client-page")}</Link>
         <br />
         <div>{t("this is a test text")}</div>
       </div>
