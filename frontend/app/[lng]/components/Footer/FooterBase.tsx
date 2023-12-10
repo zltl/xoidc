@@ -1,8 +1,12 @@
 import Link from 'next/link'
 import { Trans } from 'react-i18next/TransWithoutContext'
 import { languages } from '@/app/i18n/settings'
+import { useCurrentPath } from '@/app/lib/client/useCurrentPath'
+import { currentPath } from '@/app/lib/server/currentPath'
 
 export const FooterBase = ({ t, lng }: { t: any, lng: string }) => {
+
+  const curpath = currentPath();
 
   return (
     <footer style={{ marginTop: 50 }}>
@@ -13,7 +17,7 @@ export const FooterBase = ({ t, lng }: { t: any, lng: string }) => {
         return (
           <span key={l}>
             {index > 0 && (' or ')}
-            <Link href={`/${l}`}>
+            <Link href={`/${l}/${curpath}`}>
               {l}
             </Link>
           </span>

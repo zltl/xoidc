@@ -1,4 +1,3 @@
-'use client'
 
 import { FooterBase } from './FooterBase'
 import { useTranslation } from '@/app/i18n/client'
