@@ -39,7 +39,7 @@ export default function Shell({ lng, children }: { lng: string, children: React.
         <div
           className='overflow-y-auto py-5 px-3 h-full
         bg-white dark:bg-gray-800'>
-          <div className='p-2'>
+          <div className='p-1 py-2'>
             Hello this is aside
           </div>
         </div>
