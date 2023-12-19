@@ -1,6 +1,7 @@
 'use client'
 
 import clsx from "clsx";
+import Link from "next/link";
 import { useState } from "react";
 import { FaBars } from "react-icons/fa6";
 
@@ -19,7 +20,7 @@ export default function Shell({ lng, children }: { lng: string, children: React.
               <FaBars />
             </button>
             <div>
-              Hello This is Header
+              XOIDC
             </div>
           </div>
         </div>
@@ -37,11 +38,17 @@ export default function Shell({ lng, children }: { lng: string, children: React.
         id="drawer-navigation"
       >
         <div
-          className='overflow-y-auto py-5 px-3 h-full
-        bg-white dark:bg-gray-800'>
-          <div className='p-1 py-2'>
-            Hello this is aside
-          </div>
+          className='overflow-y-auto py-5 px-3 h-full bg-white dark:bg-gray-800'>
+          <Link
+            href="#"
+            className='block p-1 py-2'>
+            OIDC Clients
+          </Link>
+          <Link
+            href="#"
+            className='block p-1 py-2'>
+            User Namespaces
+          </Link>
         </div>
       </aside>
 
