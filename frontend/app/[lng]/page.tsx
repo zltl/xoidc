@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { useTranslation } from "@/app/i18n";
 import { currentPath } from "../lib/server/currentPath";
-import { Footer } from "./components/Footer";
 
 export default async function Page({
   params: { lng },

@@ -3,7 +3,7 @@ import { languages } from '@/app/i18n/settings';
 import type { Metadata } from 'next';
 import '@/app/globals.css';
 import { Inter } from 'next/font/google'
-import Shell from './components/Footer/Shell';
+import Shell from './components/Shell';
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {

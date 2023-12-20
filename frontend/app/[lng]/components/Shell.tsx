@@ -4,12 +4,17 @@ import clsx from "clsx";
 import Link from "next/link";
 import { useState } from "react";
 import { FaBars } from "react-icons/fa6";
+import { useTranslation } from "@/app/i18n/client";
+import { useCurrentPath } from "@/app/lib/client/useCurrentPath";
+
 
 export default function Shell({ lng, children }: { lng: string, children: React.ReactNode }) {
+  const { t } = useTranslation(lng, 'shell');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const pathname = useCurrentPath();
 
   return (
-    <div className='antialiased bg-gray-50 dark:bg-gray-900'>
+    <div className='antialiased bg-gray-50 dark:bg-gray-900 h-full'>
       <nav className='bg-white border-b border-gray-200 px-4 py-2.5
        dark:bg-gray-800 dark:border-gray-700
        fixed left-0 right-0 top-0 z-50'>
@@ -38,21 +43,27 @@ export default function Shell({ lng, children }: { lng: string, children: React.
         id="drawer-navigation"
       >
         <div
-          className='overflow-y-auto py-5 px-3 h-full bg-white dark:bg-gray-800'>
+          className='overflow-y-auto py-5 h-full bg-white dark:bg-gray-800'>
           <Link
-            href="#"
-            className='block p-1 py-2'>
-            OIDC Clients
+            href="/oidc-client"
+            className={clsx('block py-2 px-3 text-base font-medium text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group',
+              {
+                'bg-gray-50 dark:bg-gray-700': pathname.startsWith(`/oidc-client`)
+              })}>
+            {t('OIDC Clients')}
           </Link>
           <Link
-            href="#"
-            className='block p-1 py-2'>
-            User Namespaces
+            href="/user-namespaces"
+            className={clsx('block py-2 px-3 text-base font-medium text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group',
+              {
+                'bg-gray-50 dark:bg-gray-700': pathname.startsWith(`/user-namespaces`)
+              })}>
+            {t("User Namespaces")}
           </Link>
         </div>
       </aside>
 
-      <main className="p-4 md:ml-64 h-auto pt-20">
+      <main className="p-4 md:ml-64 pt-20">
         {children}
       </main>
 
