@@ -6,6 +6,7 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/zltl/xoidc/internal/pkg/api"
 	"github.com/zltl/xoidc/internal/pkg/exampleop"
 	"github.com/zltl/xoidc/internal/pkg/storage"
 	"golang.org/x/exp/slog"
@@ -49,6 +50,10 @@ func main() {
 	)
 
 	router := exampleop.SetupServer(issuer, storage, logger, false)
+	h := api.Handler{
+		Store: storage,
+	}
+	router.Route("/api/", h.Serve)
 
 	server := &http.Server{
 		Addr:    ":" + port,
