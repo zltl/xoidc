@@ -26,4 +26,5 @@ type Client struct {
 	RedirectURIGlobs               string
 	UserNamespaceID                uuid.UUID
 	GrantTypes                     string
+	Name                           string
 }

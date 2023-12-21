@@ -31,6 +31,7 @@ type clientTable struct {
 	RedirectURIGlobs               postgres.ColumnString
 	UserNamespaceID                postgres.ColumnString
 	GrantTypes                     postgres.ColumnString
+	Name                           postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -85,8 +86,9 @@ func newClientTableImpl(schemaName, tableName, alias string) clientTable {
 		RedirectURIGlobsColumn               = postgres.StringColumn("redirect_uri_globs")
 		UserNamespaceIDColumn                = postgres.StringColumn("user_namespace_id")
 		GrantTypesColumn                     = postgres.StringColumn("grant_types")
-		allColumns                           = postgres.ColumnList{IDColumn, SecretColumn, RedirectUrisColumn, ApplicationTypeColumn, AuthMethodColumn, ResponseTypesColumn, AccessTokenTypeColumn, DevModeColumn, IDTokenUserInfoClaimsAssertionColumn, ClockSkewColumn, PostLogoutRedirectURIGlobsColumn, RedirectURIGlobsColumn, UserNamespaceIDColumn, GrantTypesColumn}
-		mutableColumns                       = postgres.ColumnList{IDColumn, SecretColumn, RedirectUrisColumn, ApplicationTypeColumn, AuthMethodColumn, ResponseTypesColumn, AccessTokenTypeColumn, DevModeColumn, ClockSkewColumn, PostLogoutRedirectURIGlobsColumn, RedirectURIGlobsColumn, UserNamespaceIDColumn, GrantTypesColumn}
+		NameColumn                           = postgres.StringColumn("name")
+		allColumns                           = postgres.ColumnList{IDColumn, SecretColumn, RedirectUrisColumn, ApplicationTypeColumn, AuthMethodColumn, ResponseTypesColumn, AccessTokenTypeColumn, DevModeColumn, IDTokenUserInfoClaimsAssertionColumn, ClockSkewColumn, PostLogoutRedirectURIGlobsColumn, RedirectURIGlobsColumn, UserNamespaceIDColumn, GrantTypesColumn, NameColumn}
+		mutableColumns                       = postgres.ColumnList{IDColumn, SecretColumn, RedirectUrisColumn, ApplicationTypeColumn, AuthMethodColumn, ResponseTypesColumn, AccessTokenTypeColumn, DevModeColumn, ClockSkewColumn, PostLogoutRedirectURIGlobsColumn, RedirectURIGlobsColumn, UserNamespaceIDColumn, GrantTypesColumn, NameColumn}
 	)
 
 	return clientTable{
@@ -107,6 +109,7 @@ func newClientTableImpl(schemaName, tableName, alias string) clientTable {
 		RedirectURIGlobs:               RedirectURIGlobsColumn,
 		UserNamespaceID:                UserNamespaceIDColumn,
 		GrantTypes:                     GrantTypesColumn,
+		Name:                           NameColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,
