@@ -55,7 +55,8 @@ CREATE TABLE public.client (
     post_logout_redirect_uri_globs text[] DEFAULT '{}'::text[] NOT NULL,
     redirect_uri_globs text[] DEFAULT '{}'::text[] NOT NULL,
     user_namespace_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid NOT NULL,
-    grant_types character varying[] DEFAULT '{}'::character varying[] NOT NULL
+    grant_types character varying[] DEFAULT '{}'::character varying[] NOT NULL,
+    name character varying(200) DEFAULT ''::character varying NOT NULL
 );
 
 
@@ -87,6 +88,55 @@ private_key_jwt';
 COMMENT ON COLUMN public.client.access_token_type IS '0: bearer
 1:jwt';
 
+
+--
+-- Name: code_request_id; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.code_request_id (
+    code character varying(256) NOT NULL,
+    request_id uuid NOT NULL,
+    create_time timestamp(3) with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.code_request_id OWNER TO postgres;
+
+--
+-- Name: refresh_token; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.refresh_token (
+    id character varying(200) DEFAULT ''::character varying NOT NULL,
+    token text DEFAULT ''::text NOT NULL,
+    auth_time timestamp(3) without time zone DEFAULT now() NOT NULL,
+    amr character varying(200)[] DEFAULT '{}'::character varying[] NOT NULL,
+    audience character varying(200)[] DEFAULT '{}'::character varying[] NOT NULL,
+    user_id character varying(200) DEFAULT ''::character varying NOT NULL,
+    application_id character varying(200) DEFAULT ''::character varying NOT NULL,
+    expiration timestamp(3) without time zone DEFAULT now() NOT NULL,
+    scopes character varying(200)[] DEFAULT '{}'::character varying[] NOT NULL
+);
+
+
+ALTER TABLE public.refresh_token OWNER TO postgres;
+
+--
+-- Name: token; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.token (
+    id character varying(200) DEFAULT ''::character varying NOT NULL,
+    audience character varying(200)[] DEFAULT '{}'::character varying[] NOT NULL,
+    expiration timestamp(3) without time zone DEFAULT now() NOT NULL,
+    scopes character varying(200)[] DEFAULT '{}'::character varying[] NOT NULL,
+    application_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    subject uuid DEFAULT gen_random_uuid() NOT NULL,
+    refresh_token_id uuid DEFAULT gen_random_uuid() NOT NULL
+);
+
+
+ALTER TABLE public.token OWNER TO postgres;
 
 --
 -- Name: user; Type: TABLE; Schema: public; Owner: postgres
@@ -125,6 +175,11 @@ ALTER TABLE public."user" OWNER TO postgres;
 --
 
 COPY public.auth_request (id, creation_date, done, auth_time, content, namespace_id, user_id) FROM stdin;
+30fe0ae9-d940-4d2a-a4d8-8c539622104e	2023-11-26 07:06:05.95332+00	f	0001-01-01 00:00:00+00	{"scope":"openid profile","response_type":"code","client_id":"674fc25c-7772-45e3-835d-3b77b16a2937","redirect_uri":"http://localhost:9999/auth/callback","state":"64a85d42-e863-4407-a923-5af760bec3a2","nonce":"","response_mode":"","display":"","prompt":"Welcome back!","max_age":null,"ui_locales":null,"id_token_hint":"","login_hint":"","acr_values":"","code_challenge":"","code_challenge_method":"","RequestParam":""}	00000000-0000-0000-0000-000000000000	00000000-0000-0000-0000-000000000000
+5f141e2c-4bfb-449f-b082-21752c4080f9	2023-12-02 09:36:45.410367+00	t	0001-01-01 00:00:00+00	{"scope":"openid profile","response_type":"code","client_id":"674fc25c-7772-45e3-835d-3b77b16a2937","redirect_uri":"http://localhost:9999/auth/callback","state":"e37f7a11-c7a7-47b5-85d9-adcde28bd31a","nonce":"","response_mode":"","display":"","prompt":"Welcome back!","max_age":null,"ui_locales":null,"id_token_hint":"","login_hint":"","acr_values":"","code_challenge":"","code_challenge_method":"","RequestParam":""}	00000000-0000-0000-0000-000000000000	744d9044-f29d-42e8-a65e-e6c52398fa1f
+7537efeb-31d8-41f6-a92f-c9f1567cc347	2023-11-26 06:53:34.610723+00	t	0001-01-01 00:00:00+00	{"scope":"openid profile","response_type":"code","client_id":"674fc25c-7772-45e3-835d-3b77b16a2937","redirect_uri":"http://localhost:9999/auth/callback","state":"e0dc027f-7422-4ce0-94c6-482015208e83","nonce":"","response_mode":"","display":"","prompt":"Welcome back!","max_age":null,"ui_locales":null,"id_token_hint":"","login_hint":"","acr_values":"","code_challenge":"","code_challenge_method":"","RequestParam":""}	00000000-0000-0000-0000-000000000000	744d9044-f29d-42e8-a65e-e6c52398fa1f
+f8e80ace-06e0-4b73-9a20-e7f873a588f7	2023-12-02 11:20:43.741457+00	t	0001-01-01 00:00:00+00	{"scope":"openid profile","response_type":"code","client_id":"674fc25c-7772-45e3-835d-3b77b16a2937","redirect_uri":"http://localhost:9999/auth/callback","state":"3324b9ad-bafc-4880-b294-f797dd706b8d","nonce":"","response_mode":"","display":"","prompt":"Welcome back!","max_age":null,"ui_locales":null,"id_token_hint":"","login_hint":"","acr_values":"","code_challenge":"","code_challenge_method":"","RequestParam":""}	00000000-0000-0000-0000-000000000000	744d9044-f29d-42e8-a65e-e6c52398fa1f
+22a55ec0-0171-44f8-85b5-99bdfcfc9318	2023-12-02 09:45:47.652939+00	f	0001-01-01 00:00:00+00	{"scope":"openid profile","response_type":"code","client_id":"674fc25c-7772-45e3-835d-3b77b16a2937","redirect_uri":"http://localhost:9999/auth/callback","state":"4d678a56-c938-425f-9a50-3287e8728ee5","nonce":"","response_mode":"","display":"","prompt":"Welcome back!","max_age":null,"ui_locales":null,"id_token_hint":"","login_hint":"","acr_values":"","code_challenge":"","code_challenge_method":"","RequestParam":""}	00000000-0000-0000-0000-000000000000	00000000-0000-0000-0000-000000000000
 \.
 
 
@@ -132,8 +187,35 @@ COPY public.auth_request (id, creation_date, done, auth_time, content, namespace
 -- Data for Name: client; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.client (id, secret, redirect_uris, application_type, auth_method, response_types, access_token_type, dev_mode, id_token_user_info_claims_assertion, clock_skew, post_logout_redirect_uri_globs, redirect_uri_globs, user_namespace_id, grant_types) FROM stdin;
-674fc25c-7772-45e3-835d-3b77b16a2937	123456	{custom://auth/callback,http://localhost:9999/auth/callback,http://localhost/auth/callback}	0	client_secret_basic	{code}	0	t	t	01:05:00	{}	{}	00000000-0000-0000-0000-000000000000	{authorization_code,refresh_token,urn:ietf:params:oauth:grant-type:token-exchange}
+COPY public.client (id, secret, redirect_uris, application_type, auth_method, response_types, access_token_type, dev_mode, id_token_user_info_claims_assertion, clock_skew, post_logout_redirect_uri_globs, redirect_uri_globs, user_namespace_id, grant_types, name) FROM stdin;
+674fc25c-7772-45e3-835d-3b77b16a2937	123456	{custom://auth/callback,http://localhost:9999/auth/callback,http://localhost/auth/callback}	0	client_secret_basic	{code}	0	t	t	01:05:00	{}	{}	00000000-0000-0000-0000-000000000000	{authorization_code,refresh_token,urn:ietf:params:oauth:grant-type:token-exchange}	
+\.
+
+
+--
+-- Data for Name: code_request_id; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.code_request_id (code, request_id, create_time) FROM stdin;
+s2o3ld5MBb9AaB3vKlWPDo9EnfoGwgqMgHhwEnzCovgpZ9rqgQMFhr44W4Hh-lOFsiVfUw	5f141e2c-4bfb-449f-b082-21752c4080f9	2023-12-02 09:36:50.965+00
+r2dx_0-YIsxVCD7uNisPnKbQtMCfzu89tqIGLLu2QsdnQaGq0qDs0WDWJCoQKpUORGcPNg	f8e80ace-06e0-4b73-9a20-e7f873a588f7	2023-12-02 11:20:52.255+00
+\.
+
+
+--
+-- Data for Name: refresh_token; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.refresh_token (id, token, auth_time, amr, audience, user_id, application_id, expiration, scopes) FROM stdin;
+\.
+
+
+--
+-- Data for Name: token; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.token (id, audience, expiration, scopes, application_id, subject, refresh_token_id) FROM stdin;
+78488baa-54f7-464e-ac64-a953d5cb182c	{674fc25c-7772-45e3-835d-3b77b16a2937}	2023-12-02 19:28:54.796	{openid,profile}	674fc25c-7772-45e3-835d-3b77b16a2937	744d9044-f29d-42e8-a65e-e6c52398fa1f	00000000-0000-0000-0000-000000000000
 \.
 
 
@@ -160,6 +242,30 @@ ALTER TABLE ONLY public.auth_request
 
 ALTER TABLE ONLY public.client
     ADD CONSTRAINT client_new_pkey PRIMARY KEY (id_token_user_info_claims_assertion);
+
+
+--
+-- Name: code_request_id code_request_id_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.code_request_id
+    ADD CONSTRAINT code_request_id_pkey PRIMARY KEY (code, request_id);
+
+
+--
+-- Name: refresh_token refresh_token_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.refresh_token
+    ADD CONSTRAINT refresh_token_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: token token_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.token
+    ADD CONSTRAINT token_pkey PRIMARY KEY (id);
 
 
 --
