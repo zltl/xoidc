@@ -1,67 +1,39 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/zltl/xoidc/server/internal/pkg/storage"
+	"github.com/go-chi/chi/v5"
+	"github.com/zltl/xoidc/server/internal/pkg/m"
+
+	"github.com/sirupsen/logrus"
 )
 
-type Client struct {
-	ID                             string   `json:"id"`
-	Secret                         string   `json:"secret"`
-	RedirectURIs                   []string `json:"redirect_uris"`
-	ApplicationType                int      `json:"application_type"`
-	AuthMethod                     string   `json:"auth_method"`
-	ResponseTypes                  []string `json:"response_types"`
-	GrantTypes                     []string `json:"grant_types"`
-	AccessTokenType                int      `json:"access_token_type"`
-	DevMode                        bool     `json:"dev_mode"`
-	IDTokenUserinfoClaimsAssertion bool     `json:"id_token_userinfo_claims_assertion"`
-	ClockSkew                      string   `json:"clock_skew"`
-	PostLogoutRedirectURIGlobs     []string `json:"post_logout_redirect_uri_globs"`
-	RedirectURIGlobs               []string `json:"redirect_uri_globs"`
-	UserNamespaceID                string   `json:"user_namespace_id"`
-	Name                           string   `json:"name"`
-}
-
-func toStrList[T any](ss []T) []string {
-	r := make([]string, 0)
-	for _, s := range ss {
-		r = append(r, fmt.Sprint(s))
+// get one client by id
+// GET /api/oidc/clients/{clientid}
+func (h *Handler) handleGetClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	clientID := chi.URLParam(r, "client_id")
+	cli, err := h.Store.GetClient(ctx, clientID)
+	if err != nil {
+		logrus.Error(err)
+		h.R(w, r, http.StatusInternalServerError, m.Response{
+			Status: m.ErrFailed,
+			Msg:    err.Error(),
+		})
+		return
 	}
-	return r
-}
-
-func clientDB2View(c *storage.Client) Client {
-	return Client{
-		ID:                             c.GetID(),
-		Secret:                         c.GetSecret(),
-		RedirectURIs:                   c.RedirectURIs(),
-		ApplicationType:                int(c.ApplicationType()),
-		AuthMethod:                     string(c.AuthMethod()),
-		ResponseTypes:                  toStrList(c.ResponseTypes()),
-		GrantTypes:                     toStrList(c.GrantTypes()),
-		AccessTokenType:                int(c.AccessTokenType()),
-		DevMode:                        c.DevMode(),
-		IDTokenUserinfoClaimsAssertion: c.IDTokenUserinfoClaimsAssertion(),
-		ClockSkew:                      c.ClockSkew().String(),
-		PostLogoutRedirectURIGlobs:     c.PostLogoutRedirectURIGlobs(),
-		RedirectURIGlobs:               c.RedirectURIGlobs(),
-		UserNamespaceID:                c.UserNamespaceID(),
-		Name:                           c.Name(),
-	}
-}
-
-type ClientListResponse struct {
-	Response
-	Total   int64    `json:"total"`
-	Clients []Client `json:"clients"`
+	h.R(w, r, http.StatusOK, m.ClientResponse{
+		Response: m.Response{
+			Status: m.Success,
+		},
+		Client: m.ClientDB2View(cli), // TODO: fix it
+	})
 }
 
 // list all clients
-// GET /api/client?limit=10&offset=0
+// GET /api/oidc/clients?limit=10&offset=0
 func (h *Handler) handleGetClientList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	limitStr := r.URL.Query().Get("limit")
@@ -72,8 +44,8 @@ func (h *Handler) handleGetClientList(w http.ResponseWriter, r *http.Request) {
 
 	total, err := h.Store.TotalClient(ctx)
 	if err != nil {
-		h.R(w, r, http.StatusInternalServerError, Response{
-			Status: ErrFailed,
+		h.R(w, r, http.StatusInternalServerError, m.Response{
+			Status: m.ErrFailed,
 			Msg:    err.Error(),
 		})
 		return
@@ -81,24 +53,42 @@ func (h *Handler) handleGetClientList(w http.ResponseWriter, r *http.Request) {
 
 	clients, err := h.Store.GetAllClient(ctx, offset, limit)
 	if err != nil {
-		h.R(w, r, http.StatusInternalServerError, Response{
-			Status: ErrFailed,
+		h.R(w, r, http.StatusInternalServerError, m.Response{
+			Status: m.ErrFailed,
 			Msg:    err.Error(),
 		})
 		return
 	}
 
-	cs := []Client{}
+	cs := []m.Client{}
 	for _, c := range clients {
-		cs = append(cs, clientDB2View(&c))
+		cs = append(cs, m.ClientDB2View(&c))
 	}
 
-	h.R(w, r, http.StatusOK, ClientListResponse{
-		Response: Response{
-			Status: Success,
+	h.R(w, r, http.StatusOK, m.ClientListResponse{
+		Response: m.Response{
+			Status: m.Success,
 			Msg:    "success",
 		},
 		Total:   total,
 		Clients: cs,
 	})
+}
+
+// POST /api/oidc/client
+// create new client
+func (h *Handler) handlePostClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var client m.Client
+	// parse json
+	if err := h.decodeJSON(ctx, r, &client); err != nil {
+		logrus.Error(err)
+		h.R(w, r, http.StatusBadRequest, m.Response{
+			Status: m.ErrInvalidRequest,
+			Msg:    err.Error(),
+		})
+	}
+	// TODO: save to db
+	// TODO: return client to client
+
 }

@@ -254,7 +254,7 @@ func (c *Client) LoginURL(id string) string {
 func (c *Client) AccessTokenType() op.AccessTokenType {
 	return c.accessTokenType
 }
-
+p
 // IDTokenLifetime must return the lifetime of the client's id_tokens
 func (c *Client) IDTokenLifetime() time.Duration {
 	return 1 * time.Hour
@@ -297,6 +297,7 @@ func (c *Client) IDTokenUserinfoClaimsAssertion() bool {
 // (subtract from issued_at, add to expiration, ...)
 func (c *Client) ClockSkew() time.Duration {
 	return c.clockSkew
+
 }
 
 // RegisterClients enables you to register clients for the example implementation

@@ -53,7 +53,7 @@ func main() {
 	h := api.Handler{
 		Store: storage,
 	}
-	router.Route("/api/", h.Serve)
+	router.Route("/api/oidc", h.Serve)
 
 	server := &http.Server{
 		Addr:    ":" + port,

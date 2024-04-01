@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,22 +15,13 @@ type Handler struct {
 	Store *storage.Storage
 }
 
-// serve /api/...
+// serve /api/oidc/...
 func (h *Handler) Serve(r chi.Router) {
-	r.Get("/client", h.handleGetClientList)
+	r.Get("/clients", h.handleGetClientList)
+	r.Post("/clients", h.handlePostClient)
+	r.Get("/clients/{client_id}", h.handleGetClient)
 	// r.Get("/", h.index)
 }
-
-type Response struct {
-	Status string `json:"status"`
-	Msg    string `json:"msg"`
-}
-
-const (
-	Success          = "success"
-	ErrFailed        = "failed"
-	ErrInvalidParams = "invalid_params"
-)
 
 func (h *Handler) R(w http.ResponseWriter, r *http.Request, code int, res any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -40,4 +33,16 @@ func (h *Handler) R(w http.ResponseWriter, r *http.Request, code int, res any) {
 	w.WriteHeader(code)
 	w.Write(body)
 	logrus.Infof("%s %s -> %s", r.Method, r.URL.String(), body)
+}
+
+func (h *Handler) decodeJSON(ctx context.Context, r *http.Request, v any) error {
+	_ = ctx
+	// read all data
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	logrus.Infof("url=%s body=%s", r.URL, buf)
+	err = json.Unmarshal(buf, &v)
+	return err
 }
