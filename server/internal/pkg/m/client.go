@@ -3,7 +3,7 @@ package m
 import (
 	"fmt"
 
-	"github.com/zltl/xoidc/server/internal/pkg/storage"
+	"github.com/zltl/xoidc/server/internal/pkg/storage" // TODO: fix recursive import
 )
 
 type ClientListResponse struct {
